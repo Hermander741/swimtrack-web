@@ -38,10 +38,10 @@ export function parseResultTable($: cheerio.CheerioAPI): SwimResult[] {
     const clubLink = row.find('a[href*="/Club/"]').first()
     const club = clubLink.clone().children('i').remove().end().text().trim()
 
-    const timeEl = row.find('.myresults_content_divtable_right').filter((_, e) => {
-      const div = $(e)
-      return div.hasClass('hidden-xs') && !div.hasClass('myresults_content_divtable_points')
-    }).first()
+    const timeEl = row.find('.myresults_content_divtable_right')
+      .not('.myresults_content_divtable_points')
+      .filter((_, e) => /^\d+:\d+\.\d+$|^\d+\.\d+$|^(DNS|DSQ|DNF|DQ|---)$/i.test($(e).text().trim()))
+      .first()
     const timeMs = parseTimeMs(timeEl.text().trim())
 
     results.push({ rank, name, birthYear, club, timeMs, participantId: pidMatch[1] })
