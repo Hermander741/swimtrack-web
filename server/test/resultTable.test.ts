@@ -15,6 +15,8 @@ const HTML = `
     </div>
     <div class="hidden-xs col-sm-4"><a href="/de-AT/Meets/Recent/2391/Club/7519">VIENNA AQUATIC SC<i></i></a></div>
     <div class="hidden-xs col-sm-2 col-md-1 text-right myresults_content_divtable_right">39.76</div>
+    <div class="hidden-xs hidden-sm col-md-1 text-right myresults_content_divtable_right myresults_content_divtable_points">542</div>
+    <div class="col-xs-12 hidden-sm hidden-md hidden-lg text-right myresults_content_divtable_right">39.76</div>
   </div>
   <div class="row myresults_content_divtablerow myresults_content_divtablerow_even">
     <div class="col-xs-1"><span class="msecm-place msecm-place-silver">2.</span></div>

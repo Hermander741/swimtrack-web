@@ -39,8 +39,9 @@ export function parseResultTable($: cheerio.CheerioAPI): SwimResult[] {
     const club = clubLink.clone().children('i').remove().end().text().trim()
 
     const timeEl = row.find('.myresults_content_divtable_right').filter((_, e) => {
-      return $(e).hasClass('hidden-xs')
-    }).last()
+      const div = $(e)
+      return div.hasClass('hidden-xs') && !div.hasClass('myresults_content_divtable_points')
+    }).first()
     const timeMs = parseTimeMs(timeEl.text().trim())
 
     results.push({ rank, name, birthYear, club, timeMs, participantId: pidMatch[1] })
