@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import type { Element } from 'domhandler'
 import { httpClient } from '../httpClient'
 import { cache } from '../cache'
 import type { MeetSummary } from '../types'
@@ -33,7 +34,7 @@ export function parseDateRange(s: string): { startDate: string; endDate: string 
 
 export function parseMeetRow(
   $: cheerio.CheerioAPI,
-  row: cheerio.Cheerio<cheerio.Element>,
+  row: cheerio.Cheerio<Element>,
   status: MeetSummary['status'],
 ): MeetSummary | null {
   const link = row.find('a[href*="/Overview"]').first()
