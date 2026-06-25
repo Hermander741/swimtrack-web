@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   times: 'swimtrack_times',
   competitions: 'swimtrack_competitions',
   pdfs: 'swimtrack_pdfs',
+  activeSwimmerId: 'swimtrack_active_swimmer',
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -104,14 +105,42 @@ export function useStore() {
   })
   const [pdfs, setPdfs] = useState<PDFDocument[]>(() => load<PDFDocument[]>(STORAGE_KEYS.pdfs, []))
 
+  const [activeSwimmerId, setActiveSwimmerIdState] = useState<string | null>(() => {
+    const storedActive = load<string | null>(STORAGE_KEYS.activeSwimmerId, null)
+    const storedSwimmers = load<Swimmer[]>(STORAGE_KEYS.swimmers, [])
+    const allSwimmers = storedSwimmers.length ? storedSwimmers : [DEMO_SWIMMER]
+    if (storedActive && allSwimmers.some(s => s.id === storedActive)) return storedActive
+    return allSwimmers[0]?.id ?? null
+  })
+
   useEffect(() => { save(STORAGE_KEYS.swimmers, swimmers) }, [swimmers])
   useEffect(() => { save(STORAGE_KEYS.times, times) }, [times])
   useEffect(() => { save(STORAGE_KEYS.competitions, competitions) }, [competitions])
   useEffect(() => { save(STORAGE_KEYS.pdfs, pdfs) }, [pdfs])
+  useEffect(() => { save(STORAGE_KEYS.activeSwimmerId, activeSwimmerId) }, [activeSwimmerId])
 
-  const addSwimmer = useCallback((s: Swimmer) => setSwimmers(p => [...p, s]), [])
+  // Fix up activeSwimmerId when the swimmers list changes (e.g. after delete)
+  useEffect(() => {
+    if (swimmers.length === 0) {
+      setActiveSwimmerIdState(null)
+      return
+    }
+    if (!swimmers.find(s => s.id === activeSwimmerId)) {
+      setActiveSwimmerIdState(swimmers[0].id)
+    }
+  }, [swimmers, activeSwimmerId])
+
+  const addSwimmer = useCallback((s: Swimmer) => {
+    setSwimmers(p => [...p, s])
+    setActiveSwimmerIdState(prev => prev ?? s.id)
+  }, [])
   const updateSwimmer = useCallback((s: Swimmer) => setSwimmers(p => p.map(x => x.id === s.id ? s : x)), [])
-  const removeSwimmer = useCallback((id: string) => setSwimmers(p => p.filter(x => x.id !== id)), [])
+  const removeSwimmer = useCallback((id: string) => {
+    setSwimmers(p => p.filter(x => x.id !== id))
+    setTimes(p => p.filter(x => x.swimmerId !== id))
+  }, [])
+
+  const setActiveSwimmerId = useCallback((id: string) => setActiveSwimmerIdState(id), [])
 
   const addTime = useCallback((t: SwimTime) => {
     setTimes(prev => {
@@ -140,11 +169,14 @@ export function useStore() {
     return times.filter(t => t.swimmerId === swimmerId && t.isPersonalBest)
   }, [times])
 
+  const activeSwimmer = swimmers.find(s => s.id === activeSwimmerId)
+
   return {
     swimmers, addSwimmer, updateSwimmer, removeSwimmer,
     times, addTime, removeTime,
     competitions, addCompetition, updateCompetition, removeCompetition,
     pdfs, addPDF, removePDF,
     getPersonalBests,
+    activeSwimmerId, activeSwimmer, setActiveSwimmerId,
   }
 }
