@@ -2,6 +2,7 @@ import { useContext, useRef, useState } from 'react'
 import { FileText, Trash2, Download, FilePlus } from 'lucide-react'
 import { StoreContext } from '../App'
 import { Card } from '../components/Card'
+import { SwimmerChip } from '../components/SwimmerChip'
 import type { PDFDocument } from '../types'
 import { generateId } from '../utils/format'
 
@@ -61,6 +62,11 @@ export function Dokumente() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 pb-24">
       <div className="px-4 pt-14 pb-4 max-w-lg mx-auto">
+        {store.activeSwimmer && (
+          <div className="mb-4">
+            <SwimmerChip swimmer={store.activeSwimmer} swimmerCount={store.swimmers.length} mode="readonly" />
+          </div>
+        )}
         <div className="mb-6">
           <h1 className="text-white font-bold text-2xl">Ausschreibungen</h1>
           <p className="text-slate-400 text-sm">{store.pdfs.length} Dokument{store.pdfs.length !== 1 ? 'e' : ''} gespeichert</p>

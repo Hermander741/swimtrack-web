@@ -3,12 +3,13 @@ import { Timer, Plus, Star, Trash2, ChevronDown, TrendingDown } from 'lucide-rea
 import { StoreContext } from '../App'
 import { Card } from '../components/Card'
 import { Modal } from '../components/Modal'
+import { SwimmerChip } from '../components/SwimmerChip'
 import type { SwimTime } from '../types'
 import { formatTime, parseTimeInput, formatDate, generateId, SWIM_EVENTS } from '../utils/format'
 
 export function Zeiten() {
   const store = useContext(StoreContext)!
-  const swimmer = store.swimmers[0]
+  const swimmer = store.activeSwimmer
   const [open, setOpen] = useState(false)
   const [filterEvent, setFilterEvent] = useState('alle')
   const [filterCourse, setFilterCourse] = useState<'alle' | 'LB' | 'KB'>('alle')
@@ -56,6 +57,11 @@ export function Zeiten() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 pb-24">
       <div className="px-4 pt-14 pb-4 max-w-lg mx-auto">
+        {swimmer && (
+          <div className="mb-4">
+            <SwimmerChip swimmer={swimmer} swimmerCount={store.swimmers.length} mode="readonly" />
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-white font-bold text-2xl">Zeiten</h1>

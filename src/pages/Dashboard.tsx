@@ -20,6 +20,7 @@ export function Dashboard() {
   const pbs = store.getPersonalBests(swimmer?.id ?? '')
   const nextComp = upcomingComps[0]
   const recentTimes = [...store.times]
+    .filter(t => t.swimmerId === swimmer?.id)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 3)
 
