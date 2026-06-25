@@ -18,6 +18,7 @@ export function SwimmerFormModal({ open, onClose, swimmer }: SwimmerFormModalPro
     birthYear: '',
     club: '',
     avatarColor: AVATAR_COLORS[0],
+    myresultsName: '',
   })
 
   useEffect(() => {
@@ -26,16 +27,25 @@ export function SwimmerFormModal({ open, onClose, swimmer }: SwimmerFormModalPro
       birthYear: swimmer?.birthYear?.toString() ?? '',
       club: swimmer?.club ?? '',
       avatarColor: swimmer?.avatarColor ?? AVATAR_COLORS[0],
+      myresultsName: swimmer?.myresultsName ?? '',
     })
   }, [swimmer])
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     const year = parseInt(form.birthYear)
+    const base: Swimmer = {
+      id: isEdit ? swimmer!.id : generateId(),
+      name: form.name,
+      birthYear: year,
+      club: form.club,
+      avatarColor: form.avatarColor,
+      myresultsName: form.myresultsName.trim() || undefined,
+    }
     if (isEdit) {
-      store.updateSwimmer({ ...swimmer!, name: form.name, birthYear: year, club: form.club, avatarColor: form.avatarColor })
+      store.updateSwimmer(base)
     } else {
-      store.addSwimmer({ id: generateId(), name: form.name, birthYear: year, club: form.club, avatarColor: form.avatarColor })
+      store.addSwimmer(base)
     }
     onClose()
   }
@@ -89,6 +99,18 @@ export function SwimmerFormModal({ open, onClose, swimmer }: SwimmerFormModalPro
               />
             ))}
           </div>
+        </div>
+        <div>
+          <label className="block text-slate-400 text-xs mb-1">
+            myresults.eu Name <span className="text-slate-600">(optional)</span>
+          </label>
+          <input
+            value={form.myresultsName}
+            onChange={e => setForm(f => ({ ...f, myresultsName: e.target.value }))}
+            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm font-mono focus:border-sky-500 outline-none"
+            placeholder="NACHNAME Vorname"
+          />
+          <p className="text-slate-700 text-[10px] mt-1">Format von myresults.eu — leer lassen für Auto-Suche</p>
         </div>
         <button
           type="submit"

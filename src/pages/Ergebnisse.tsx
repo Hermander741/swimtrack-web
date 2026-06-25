@@ -293,6 +293,149 @@ function MeinSchwimmerTab() {
   )
 }
 
+function LiveTab() {
+  const store = useContext(StoreContext)!
+  const api = useApi()
+  const { openConfig } = useContext(ApiConfigContext)
+  const swimmer = store.activeSwimmer
+  const [meets, setMeets] = useState<MeetSummary[]>([])
+  const [selectedMeetId, setSelectedMeetId] = useState('')
+  const [liveData, setLiveData] = useState<import('../types').LiveResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!api.isConfigured) return
+    api.get<MeetSummary[]>('/api/meets?status=upcoming')
+      .then(data => {
+        const liveMeets = data.filter(m => m.hasLive || m.status === 'today' || m.status === 'upcoming')
+        setMeets(liveMeets)
+        if (liveMeets.length && !selectedMeetId) setSelectedMeetId(liveMeets[0].id)
+      })
+      .catch(() => {})
+  }, [api, selectedMeetId])
+
+  const fetchLive = useCallback(async () => {
+    if (!selectedMeetId || !api.isConfigured) return
+    try {
+      const data = await api.get<import('../types').LiveResult>(
+        `/api/meets/${selectedMeetId}/live?urlStatus=Today-Upcoming`,
+      )
+      setLiveData(data)
+      setLastUpdated(new Date())
+    } catch { /* ignore */ }
+  }, [selectedMeetId, api])
+
+  useEffect(() => {
+    if (!selectedMeetId) return
+    setLoading(true)
+    fetchLive().finally(() => setLoading(false))
+    const interval = setInterval(fetchLive, 10000)
+    return () => clearInterval(interval)
+  }, [selectedMeetId, fetchLive])
+
+  function saveTime(result: import('../types').SwimResult) {
+    if (!swimmer || !liveData?.event) return
+    const eventName = normalizeEventName(liveData.event)
+    const today = new Date().toISOString().split('T')[0]
+    store.addTime({
+      id: generateId(),
+      swimmerId: swimmer.id,
+      event: eventName,
+      course: meets.find(m => m.id === selectedMeetId)?.course ?? 'LB',
+      timeMs: result.timeMs,
+      date: today,
+      competition: meets.find(m => m.id === selectedMeetId)?.name,
+      isPersonalBest: false,
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  if (!api.isConfigured) {
+    return (
+      <div className="text-center py-16">
+        <Wifi size={40} className="mx-auto mb-3 text-slate-700" />
+        <p className="text-slate-400 text-sm mb-4">Kein Backend verbunden</p>
+        <button onClick={openConfig} className="bg-sky-500 text-white px-4 py-2 rounded-xl text-sm font-medium">
+          Backend verbinden
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {meets.length > 0 && (
+        <select
+          value={selectedMeetId}
+          onChange={e => { setSelectedMeetId(e.target.value); setSaved(false) }}
+          className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-sky-500"
+        >
+          {meets.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {liveData?.status === 0 ? (
+            <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> LIVE
+            </span>
+          ) : (
+            <span className="text-slate-600 text-xs">Kein LIVE-Stream aktiv</span>
+          )}
+        </div>
+        {lastUpdated && (
+          <p className="text-slate-700 text-[10px]">
+            Aktualisiert {lastUpdated.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </p>
+        )}
+      </div>
+
+      {liveData?.status === 0 && liveData.event && (
+        <div>
+          <h3 className="text-slate-300 text-sm font-medium mb-2">{liveData.event}</h3>
+          <div className="space-y-1.5">
+            {(liveData.results ?? []).map(r => {
+              const isSwimmer = swimmer && (
+                r.name.toLowerCase().includes(swimmer.name.toLowerCase().split(' ')[0])
+                || (swimmer.myresultsName && r.name.toLowerCase().includes(swimmer.myresultsName.toLowerCase().split(' ')[0]))
+              )
+              return (
+                <Card key={r.participantId} className={`flex items-center gap-3 px-4 py-2.5 ${isSwimmer ? 'border-sky-500/40 bg-sky-500/5' : ''}`}>
+                  <span className="text-slate-500 text-xs w-5 text-right">{r.rank}.</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${isSwimmer ? 'text-sky-300' : 'text-white'}`}>{r.name}</p>
+                    <p className="text-slate-600 text-xs">{r.club}</p>
+                  </div>
+                  <p className="font-mono text-white text-sm">
+                    {r.timeMs > 0 ? `${Math.floor(r.timeMs / 60000) > 0 ? `${Math.floor(r.timeMs / 60000)}:` : ''}${String(Math.floor((r.timeMs % 60000) / 1000)).padStart(2, '0')},${String(Math.floor((r.timeMs % 1000) / 10)).padStart(2, '0')}` : '—'}
+                  </p>
+                  {isSwimmer && r.timeMs > 0 && (
+                    <button
+                      onClick={() => saveTime(r)}
+                      disabled={saved}
+                      className={`p-1.5 rounded-lg transition-colors ${saved ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
+                    >
+                      {saved ? <Check size={13} /> : <Download size={13} />}
+                    </button>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {loading && !liveData && (
+        <p className="text-slate-500 text-sm text-center py-8 animate-pulse">LIVE-Daten werden geladen…</p>
+      )}
+    </div>
+  )
+}
+
 export function Ergebnisse() {
   const store = useContext(StoreContext)!
   const [tab, setTab] = useState<Tab>('meets')
@@ -334,12 +477,7 @@ export function Ergebnisse() {
 
         {tab === 'meets' && <WettkämpfeTab />}
         {tab === 'swimmer' && <MeinSchwimmerTab />}
-        {tab === 'live' && (
-          <div className="text-center py-16 text-slate-600">
-            <Radio size={36} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">LIVE-Tab wird in Task 8 hinzugefügt</p>
-          </div>
-        )}
+        {tab === 'live' && <LiveTab />}
       </div>
     </div>
   )
