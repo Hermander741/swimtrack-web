@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(sudo rm -rf /Users/hermanurban/.npm/_cacache/content-v2/sha512/93/d7)",
+      "Bash(sips -s format png public/icon.svg --out public/icon-512.png --resampleHeightWidth 512 512)",
+      "Bash(sips -s format png public/icon.svg --out public/icon-192.png --resampleHeightWidth 192 192)",
+      "Bash(sips -s format png public/icon.svg --out public/apple-touch-icon.png --resampleHeightWidth 180 180)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npx playwright *)",
+      "Bash(node -e \"require\\('puppeteer'\\)\")",
+      "Bash(node -e \"require\\('@playwright/test'\\)\")",
+      "Bash(open *)"
+    ]
+  }
+}
