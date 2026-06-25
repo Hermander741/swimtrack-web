@@ -23,17 +23,19 @@ swimmerRouter.get('/results', async (req, res) => {
 
     await Promise.all(meetsToSearch.map(async (meet) => {
       const events = await scrapeEventList(meet.id, 'Recent')
-      await Promise.all(events.map(async (event) => {
+      const meetResults: SwimmerResult[] = []
+      for (const event of events) {
         const rows = await scrapeResultTable(meet.id, event.id, 'Recent')
         for (const row of rows) {
           const nameMatch = row.name.toLowerCase().includes(name)
             || name.split(' ').every((part: string) => row.name.toLowerCase().includes(part))
           const yearMatch = !birthYear || row.birthYear === birthYear
           if (nameMatch && yearMatch && row.timeMs > 0) {
-            swimmerResults.push({ meetId: meet.id, meetName: meet.name, meetDate: meet.startDate, eventId: event.id, eventName: event.name, course: meet.course, result: row })
+            meetResults.push({ meetId: meet.id, meetName: meet.name, meetDate: meet.startDate, eventId: event.id, eventName: event.name, course: meet.course, result: row })
           }
         }
-      }))
+      }
+      swimmerResults.push(...meetResults)
     }))
 
     res.json(ok(swimmerResults))
