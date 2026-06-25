@@ -1,15 +1,18 @@
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Timer, Trophy, FileText, Zap, TrendingUp, Star, ChevronRight } from 'lucide-react'
 import { StoreContext } from '../App'
 import { Card, StatCard } from '../components/Card'
 import { formatTime, formatDate, daysUntil } from '../utils/format'
+import { SwimmerChip } from '../components/SwimmerChip'
+import { SwimmerFormModal } from '../components/SwimmerFormModal'
 
 export function Dashboard() {
   const store = useContext(StoreContext)!
   const navigate = useNavigate()
 
-  const swimmer = store.swimmers[0]
+  const swimmer = store.activeSwimmer
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
   const upcomingComps = store.competitions
     .filter(c => c.status === 'upcoming' || c.status === 'ongoing')
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
@@ -29,23 +32,21 @@ export function Dashboard() {
         <div className="max-w-lg mx-auto relative">
           <div className="flex items-center gap-3 mb-6">
             {swimmer ? (
-              <>
-                <div
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
-                  style={{ backgroundColor: swimmer.avatarColor }}
-                >
-                  {swimmer.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div>
-                  <p className="text-slate-400 text-xs">Willkommen zurück</p>
-                  <h1 className="text-white font-bold text-xl leading-tight">{swimmer.name}</h1>
-                  <p className="text-sky-400 text-xs">{swimmer.club}</p>
-                </div>
-              </>
+              <SwimmerChip
+                swimmer={swimmer}
+                swimmerCount={store.swimmers.length}
+                mode="interactive"
+              />
             ) : (
               <div>
                 <p className="text-slate-400 text-xs">Willkommen bei</p>
                 <h1 className="text-white font-bold text-xl">SwimTrack Austria</h1>
+                <button
+                  onClick={() => setOnboardingOpen(true)}
+                  className="mt-2 text-sky-400 text-sm flex items-center gap-1.5"
+                >
+                  + Ersten Schwimmer anlegen
+                </button>
               </div>
             )}
             <div className="ml-auto">
@@ -96,6 +97,8 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      <SwimmerFormModal open={onboardingOpen} onClose={() => setOnboardingOpen(false)} />
 
       <div className="px-4 max-w-lg mx-auto space-y-6">
         {/* Stats row */}
