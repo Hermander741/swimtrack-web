@@ -314,7 +314,7 @@ function LiveTab() {
         if (liveMeets.length && !selectedMeetId) setSelectedMeetId(liveMeets[0].id)
       })
       .catch(() => {})
-  }, [api, selectedMeetId])
+  }, [api])
 
   const fetchLive = useCallback(async () => {
     if (!selectedMeetId || !api.isConfigured) return
