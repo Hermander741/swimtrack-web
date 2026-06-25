@@ -38,7 +38,6 @@ export function SwimmerChip({ swimmer, swimmerCount, mode = 'interactive' }: Swi
       <button
         onClick={() => setSelectorOpen(true)}
         className="flex items-center gap-3"
-        aria-label="Schwimmer wechseln"
       >
         <div
           className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0"
@@ -48,7 +47,7 @@ export function SwimmerChip({ swimmer, swimmerCount, mode = 'interactive' }: Swi
         </div>
         <div>
           <p className="text-slate-400 text-xs">Willkommen zurück</p>
-          <h1 className="text-white font-bold text-xl leading-tight">{swimmer.name}</h1>
+          <p className="text-white font-bold text-xl leading-tight">{swimmer.name}</p>
           <p className="text-sky-400 text-xs flex items-center gap-0.5">
             {swimmer.club}
             {swimmerCount > 1 && <ChevronDown size={10} className="opacity-60" />}
