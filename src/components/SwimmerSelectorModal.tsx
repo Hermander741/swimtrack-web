@@ -37,19 +37,23 @@ export function SwimmerSelectorModal({ open, onClose }: SwimmerSelectorModalProp
     setEditTarget(null)
   }
 
+  const canDelete = store.swimmers.length > 1
+
   return (
     <>
       <Modal open={open} onClose={onClose} title="Schwimmer wechseln">
         <div className="space-y-1 mb-4">
           {store.swimmers.map(s => {
-            const initials = s.name.split(' ').map(n => n[0]).join('')
+            const initials = s.name.split(' ').filter(Boolean).map(n => n[0]).join('')
             const isActive = store.activeSwimmer?.id === s.id
-            const canDelete = store.swimmers.length > 1
             return (
-              <button
+              <div
                 key={s.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => handleSelect(s.id)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-left ${isActive ? 'bg-sky-500/10' : 'hover:bg-slate-700/50'}`}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(s.id) } }}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-left cursor-pointer ${isActive ? 'bg-sky-500/10' : 'hover:bg-slate-700/50'}`}
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
@@ -79,7 +83,7 @@ export function SwimmerSelectorModal({ open, onClose }: SwimmerSelectorModalProp
                     <Trash2 size={13} />
                   </button>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
