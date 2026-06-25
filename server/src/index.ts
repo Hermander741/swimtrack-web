@@ -12,7 +12,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173')
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || ALLOWED_ORIGINS.some(o => origin.startsWith(o.trim()))) cb(null, true)
+    if (!origin || ALLOWED_ORIGINS.some(o => origin === o.trim())) cb(null, true)
     else cb(new Error('Not allowed by CORS'))
   },
 }))

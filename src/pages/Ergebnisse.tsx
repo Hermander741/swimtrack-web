@@ -4,7 +4,7 @@ import { StoreContext, ApiConfigContext } from '../App'
 import { Card } from '../components/Card'
 import { SwimmerChip } from '../components/SwimmerChip'
 import { useApi } from '../hooks/useApi'
-import { generateId } from '../utils/format'
+import { generateId, formatTime } from '../utils/format'
 import type { MeetSummary, SwimmerResult } from '../types'
 
 type Tab = 'meets' | 'swimmer' | 'live'
@@ -171,7 +171,7 @@ function MeinSchwimmerTab() {
   function importResult(r: SwimmerResult) {
     if (!swimmer) return
     const eventName = normalizeEventName(r.eventName)
-    const key = `${r.meetDate}-${r.eventId}`
+    const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
 
     const isDuplicate = store.times.some(t =>
       t.swimmerId === swimmer.id &&
@@ -222,7 +222,7 @@ function MeinSchwimmerTab() {
     )
   }
 
-  const notYetImported = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}`))
+  const notYetImported = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}-${r.result.timeMs}`))
 
   return (
     <div className="space-y-3">
@@ -263,7 +263,7 @@ function MeinSchwimmerTab() {
       )}
 
       {results.map(r => {
-        const key = `${r.meetDate}-${r.eventId}`
+        const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
         const isImported = imported.has(key)
         return (
           <Card key={key} className="px-4 py-3">
@@ -275,7 +275,7 @@ function MeinSchwimmerTab() {
               </div>
               <div className="flex items-center gap-3">
                 <p className="font-mono text-white font-bold text-sm">
-                  {r.result.timeMs > 0 ? `${Math.floor(r.result.timeMs / 60000) > 0 ? `${Math.floor(r.result.timeMs / 60000)}:` : ''}${String(Math.floor((r.result.timeMs % 60000) / 1000)).padStart(2, '0')},${String(Math.floor((r.result.timeMs % 1000) / 10)).padStart(2, '0')}` : '—'}
+                  {r.result.timeMs > 0 ? formatTime(r.result.timeMs) : '—'}
                 </p>
                 <button
                   onClick={() => importResult(r)}
@@ -303,7 +303,7 @@ function LiveTab() {
   const [liveData, setLiveData] = useState<import('../types').LiveResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!api.isConfigured) return
@@ -349,8 +349,7 @@ function LiveTab() {
       competition: meets.find(m => m.id === selectedMeetId)?.name,
       isPersonalBest: false,
     })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setSavedIds(prev => new Set([...prev, result.participantId]))
   }
 
   if (!api.isConfigured) {
@@ -370,7 +369,7 @@ function LiveTab() {
       {meets.length > 0 && (
         <select
           value={selectedMeetId}
-          onChange={e => { setSelectedMeetId(e.target.value); setSaved(false) }}
+          onChange={e => { setSelectedMeetId(e.target.value); setSavedIds(new Set()) }}
           className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-sky-500"
         >
           {meets.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -411,15 +410,15 @@ function LiveTab() {
                     <p className="text-slate-600 text-xs">{r.club}</p>
                   </div>
                   <p className="font-mono text-white text-sm">
-                    {r.timeMs > 0 ? `${Math.floor(r.timeMs / 60000) > 0 ? `${Math.floor(r.timeMs / 60000)}:` : ''}${String(Math.floor((r.timeMs % 60000) / 1000)).padStart(2, '0')},${String(Math.floor((r.timeMs % 1000) / 10)).padStart(2, '0')}` : '—'}
+                    {r.timeMs > 0 ? formatTime(r.timeMs) : '—'}
                   </p>
                   {isSwimmer && r.timeMs > 0 && (
                     <button
                       onClick={() => saveTime(r)}
-                      disabled={saved}
-                      className={`p-1.5 rounded-lg transition-colors ${saved ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
+                      disabled={savedIds.has(r.participantId)}
+                      className={`p-1.5 rounded-lg transition-colors ${savedIds.has(r.participantId) ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
                     >
-                      {saved ? <Check size={13} /> : <Download size={13} />}
+                      {savedIds.has(r.participantId) ? <Check size={13} /> : <Download size={13} />}
                     </button>
                   )}
                 </Card>
