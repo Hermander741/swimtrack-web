@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { meetsRouter } from './routes/meets'
+import { resultsRouter } from './routes/results'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -24,6 +25,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/meets', meetsRouter)
+app.use('/api/meets', resultsRouter)
 
 app.listen(PORT, () => {
   console.log(`SwimTrack API running on port ${PORT}`)

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { scrapeMeetList } from '../scrapers/meetList'
+import { scrapeEventList } from '../scrapers/eventList'
 import { ok, err, MeetSummary } from '../types'
 
 export const meetsRouter = Router()
@@ -15,6 +16,17 @@ meetsRouter.get('/', async (req, res) => {
       meets.push(...await scrapeMeetList('Recent'))
     }
     res.json(ok(meets))
+  } catch (e) {
+    res.status(502).json(err(e instanceof Error ? e.message : 'Scrape failed'))
+  }
+})
+
+meetsRouter.get('/:id/events', async (req, res) => {
+  const { id } = req.params
+  const urlStatus = (req.query.urlStatus as string) ?? 'Recent'
+  try {
+    const events = await scrapeEventList(id, urlStatus)
+    res.json(ok(events))
   } catch (e) {
     res.status(502).json(err(e instanceof Error ? e.message : 'Scrape failed'))
   }
