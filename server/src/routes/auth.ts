@@ -65,11 +65,18 @@ authRouter.post('/logout', async (req, res) => {
   if (rawCookie) {
     const dotIndex = rawCookie.lastIndexOf('.')
     if (dotIndex !== -1) {
+      const rawToken = rawCookie.slice(0, dotIndex)
       const tokenSelector = rawCookie.slice(dotIndex + 1)
-      await pool.query('DELETE FROM refresh_tokens WHERE token_selector = $1', [tokenSelector])
+      const { rows } = await pool.query<{ id: string; token_hash: string }>(
+        'SELECT id, token_hash FROM refresh_tokens WHERE token_selector = $1 AND expires_at > now()',
+        [tokenSelector],
+      )
+      if (rows[0] && (await bcrypt.compare(rawToken, rows[0].token_hash))) {
+        await pool.query('DELETE FROM refresh_tokens WHERE id = $1', [rows[0].id])
+      }
     }
   }
-  res.clearCookie('rt', { path: '/' }).json(ok(null))
+  res.clearCookie('rt', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' }).json(ok(null))
 })
 
 authRouter.get('/me', requireAuth(), (req, res) => {
