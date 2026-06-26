@@ -32,6 +32,14 @@ export function Profil() {
     if (res.ok) setUser(res.data)
   }
 
+  function handleClosePasswordModal() {
+    setShowPassword(false)
+    setNewPassword('')
+    setConfirmPassword('')
+    setPwError('')
+    setPwSuccess(false)
+  }
+
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault()
     if (newPassword !== confirmPassword) { setPwError('Passwörter stimmen nicht überein'); return }
@@ -41,9 +49,9 @@ export function Profil() {
     setPwLoading(false)
     if (res.ok) {
       setPwSuccess(true)
-      setTimeout(() => { setShowPassword(false); setNewPassword(''); setConfirmPassword(''); setPwSuccess(false) }, 1500)
+      setTimeout(() => { handleClosePasswordModal() }, 1500)
     } else {
-      setPwError((res as { ok: false; error: string }).error)
+      setPwError(res.error)
     }
   }
 
@@ -90,7 +98,7 @@ export function Profil() {
         </Button>
       </div>
 
-      <Modal open={showPassword} onClose={() => setShowPassword(false)} title="Passwort ändern">
+      <Modal open={showPassword} onClose={handleClosePasswordModal} title="Passwort ändern">
         {pwSuccess ? (
           <p className="text-center text-teal-400 py-4">✓ Passwort geändert!</p>
         ) : (

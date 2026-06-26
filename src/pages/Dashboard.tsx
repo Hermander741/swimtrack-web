@@ -12,12 +12,16 @@ export function Dashboard() {
   const { user, isTrainer } = useAuth()
   const [memberCount, setMemberCount] = useState<number | null>(null)
   const [recentDocs, setRecentDocs] = useState<Document[]>([])
+  const [docsError, setDocsError] = useState(false)
 
   useEffect(() => {
     if (isTrainer) {
       listUsers().then(res => { if (res.ok) setMemberCount(res.data.length) })
     }
-    listDocuments().then(res => { if (res.ok) setRecentDocs(res.data.slice(0, 3)) })
+    listDocuments().then(res => {
+      if (res.ok) setRecentDocs(res.data.slice(0, 3))
+      else setDocsError(true)
+    })
   }, [isTrainer])
 
   return (
@@ -59,7 +63,9 @@ export function Dashboard() {
       )}
 
       {/* Recent documents */}
-      {recentDocs.length > 0 && (
+      {docsError ? (
+        <p className="text-slate-400 text-sm py-4">Dokumente konnten nicht geladen werden.</p>
+      ) : recentDocs.length > 0 ? (
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-white">Letzte Dokumente</p>
@@ -81,7 +87,7 @@ export function Dashboard() {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </PageShell>
   )
 }
