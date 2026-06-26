@@ -22,7 +22,7 @@ self.addEventListener('notificationclick', (event) => {
   const url = channelId ? `/chat?channel=${channelId}` : '/chat'
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const focused = clientList.find(c => 'focus' in c)
+      const focused = clientList.find(c => c.visibilityState === 'visible') ?? clientList[0]
       if (focused) {
         focused.navigate(url)
         return focused.focus()
