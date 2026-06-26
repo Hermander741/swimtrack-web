@@ -131,16 +131,25 @@ export function registerChatHandlers(io: Server, socket: Socket) {
   // edit-message
   socket.on('edit-message', async (data: { messageId: string; content: string }) => {
     try {
-      const { rows } = await pool.query<{ channel_id: string }>(
+      // SELECT first to verify ownership and get channel_id
+      const { rows: msgRows } = await pool.query<{ channel_id: string }>(
+        `SELECT channel_id FROM messages WHERE id = $1 AND sender_id = $2 AND deleted_for_all = false`,
+        [data.messageId, user.id],
+      )
+      if (!msgRows[0]) return
+      const channelId = msgRows[0].channel_id
+
+      // Check access before UPDATE
+      const canAccess = await userCanAccessChannel(user.id, user.role, channelId)
+      if (!canAccess) return
+
+      // Now perform the UPDATE
+      await pool.query(
         `UPDATE messages SET content = $1, edited_at = now()
-         WHERE id = $2 AND sender_id = $3
-         RETURNING channel_id`,
+         WHERE id = $2 AND sender_id = $3`,
         [data.content.trim(), data.messageId, user.id],
       )
-      if (!rows[0]) return
-      const canAccess = await userCanAccessChannel(user.id, user.role, rows[0].channel_id)
-      if (!canAccess) return
-      io.to(rows[0].channel_id).emit('message-edited', {
+      io.to(channelId).emit('message-edited', {
         messageId: data.messageId,
         content: data.content.trim(),
         editedAt: new Date().toISOString(),
