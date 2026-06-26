@@ -56,9 +56,11 @@ describe('POST /api/invitations/:token/accept', () => {
   it('creates user and returns tokens on valid accept', async () => {
     const newUser = { id: 'uuid-new', email: 'new@test.at', name: 'Test', role: 'mitglied', avatar_color: '#0EA5E9', created_at: new Date().toISOString() }
     mockPool.query
+      // atomic UPDATE invitation RETURNING id, email, role
       .mockResolvedValueOnce({ rows: [{ id: 'inv-1', email: 'new@test.at', role: 'mitglied' }] })
+      // INSERT user RETURNING ...
       .mockResolvedValueOnce({ rows: [newUser] })
-      .mockResolvedValueOnce({ rows: [] })
+      // INSERT refresh_token
       .mockResolvedValueOnce({ rows: [] })
     const res = await request(createApp())
       .post(`/api/invitations/${validToken}/accept`)
@@ -91,6 +93,8 @@ describe('POST /api/invitations', () => {
   it('sends invitation for valid request', async () => {
     mockPool.query
       .mockResolvedValueOnce({ rows: [adminUser] })  // requireAuth lookup
+      .mockResolvedValueOnce({ rows: [] })            // SELECT existing users
+      .mockResolvedValueOnce({ rows: [] })            // SELECT existing invitations
       .mockResolvedValueOnce({ rows: [] })            // INSERT invitation
     const res = await request(createApp())
       .post('/api/invitations')
@@ -98,5 +102,30 @@ describe('POST /api/invitations', () => {
       .send({ email: 'new@test.at', role: 'mitglied' })
     expect(res.status).toBe(200)
     expect(res.body.data.message).toBe('Einladung gesendet')
+  })
+
+  it('returns 409 when email already registered', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] })                           // requireAuth lookup
+      .mockResolvedValueOnce({ rows: [{ id: 'uuid-existing' }] })            // SELECT existing users
+    const res = await request(createApp())
+      .post('/api/invitations')
+      .set('Authorization', authHeader())
+      .send({ email: 'existing@test.at', role: 'mitglied' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('E-Mail bereits registriert')
+  })
+
+  it('returns 409 when active invitation already exists', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] })                           // requireAuth lookup
+      .mockResolvedValueOnce({ rows: [] })                                    // SELECT existing users
+      .mockResolvedValueOnce({ rows: [{ id: 'inv-existing' }] })             // SELECT existing invitations
+    const res = await request(createApp())
+      .post('/api/invitations')
+      .set('Authorization', authHeader())
+      .send({ email: 'pending@test.at', role: 'mitglied' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('Ausstehende Einladung bereits vorhanden')
   })
 })

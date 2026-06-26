@@ -11,30 +11,52 @@ import type { Role, User } from '../types'
 export const invitationsRouter = Router()
 
 invitationsRouter.post('/', requireAuth(['admin', 'trainer']), async (req, res) => {
-  const { email, role } = req.body as { email?: string; role?: Role }
-  if (!email || !role) { res.status(400).json(err('email and role required')); return }
-  const validRoles: Role[] = ['admin', 'trainer', 'eltern', 'mitglied']
-  if (!validRoles.includes(role)) { res.status(400).json(err('invalid role')); return }
+  try {
+    const { email, role } = req.body as { email?: string; role?: Role }
+    if (!email || !role) { res.status(400).json(err('email and role required')); return }
+    const validRoles: Role[] = ['admin', 'trainer', 'eltern', 'mitglied']
+    if (!validRoles.includes(role)) { res.status(400).json(err('invalid role')); return }
 
-  const token = crypto.randomBytes(32).toString('hex')
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    // Check for existing user
+    const { rows: existingUsers } = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email.toLowerCase().trim()],
+    )
+    if (existingUsers.length > 0) { res.status(409).json(err('E-Mail bereits registriert')); return }
 
-  await pool.query(
-    'INSERT INTO invitations (email, role, token, invited_by, expires_at) VALUES ($1, $2, $3, $4, $5)',
-    [email.toLowerCase().trim(), role, token, req.user!.id, expiresAt],
-  )
-  await sendInvitationEmail(email, role, token)
-  res.json(ok({ message: 'Einladung gesendet' }))
+    // Check for existing active invitation
+    const { rows: existingInvites } = await pool.query(
+      'SELECT id FROM invitations WHERE email = $1 AND used_at IS NULL AND expires_at > now()',
+      [email.toLowerCase().trim()],
+    )
+    if (existingInvites.length > 0) { res.status(409).json(err('Ausstehende Einladung bereits vorhanden')); return }
+
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+    await pool.query(
+      'INSERT INTO invitations (email, role, token, invited_by, expires_at) VALUES ($1, $2, $3, $4, $5)',
+      [email.toLowerCase().trim(), role, token, req.user!.id, expiresAt],
+    )
+    await sendInvitationEmail(email.toLowerCase().trim(), role, token)
+    res.json(ok({ message: 'Einladung gesendet' }))
+  } catch (e) {
+    res.status(500).json(err('Interner Fehler'))
+  }
 })
 
 invitationsRouter.get('/:token', async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, email, role, expires_at FROM invitations
-     WHERE token = $1 AND used_at IS NULL AND expires_at > now()`,
-    [req.params.token],
-  )
-  if (!rows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
-  res.json(ok(rows[0]))
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, role, expires_at FROM invitations
+       WHERE token = $1 AND used_at IS NULL AND expires_at > now()`,
+      [req.params.token],
+    )
+    if (!rows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
+    res.json(ok(rows[0]))
+  } catch (e) {
+    res.status(500).json(err('Interner Fehler'))
+  }
 })
 
 invitationsRouter.post('/:token/accept', async (req, res) => {
@@ -42,28 +64,36 @@ invitationsRouter.post('/:token/accept', async (req, res) => {
   if (!name || !password) { res.status(400).json(err('name and password required')); return }
   if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
 
-  const { rows } = await pool.query(
-    `SELECT id, email, role FROM invitations
-     WHERE token = $1 AND used_at IS NULL AND expires_at > now()`,
+  // Atomically claim the invitation — only one concurrent request succeeds
+  const { rows: invRows } = await pool.query<{ id: string; email: string; role: Role }>(
+    `UPDATE invitations SET used_at = now()
+     WHERE token = $1 AND used_at IS NULL AND expires_at > now()
+     RETURNING id, email, role`,
     [req.params.token],
   )
-  const inv = rows[0]
-  if (!inv) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
+  if (!invRows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
 
+  const inv = invRows[0]
   const hash = await bcrypt.hash(password, 12)
-  const { rows: users } = await pool.query<User>(
-    `INSERT INTO users (email, name, role, password_hash)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, email, name, role, avatar_color, created_at`,
-    [inv.email, name.trim(), inv.role, hash],
-  )
-  await pool.query('UPDATE invitations SET used_at = now() WHERE id = $1', [inv.id])
-
-  const user = users[0]
-  const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
-  await pool.query(
-    'INSERT INTO refresh_tokens (user_id, token_hash, token_selector, expires_at) VALUES ($1, $2, $3, $4)',
-    [user.id, tokenHash, tokenSelector, expiresAt],
-  )
-  res.cookie('rt', `${rawToken}.${tokenSelector}`, COOKIE_OPTS).json(ok({ accessToken, user }))
+  try {
+    const { rows: users } = await pool.query<User>(
+      `INSERT INTO users (email, name, role, password_hash)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name, role, avatar_color, created_at`,
+      [inv.email, name.trim(), inv.role, hash],
+    )
+    const user = users[0]
+    const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
+    await pool.query(
+      'INSERT INTO refresh_tokens (user_id, token_hash, token_selector, expires_at) VALUES ($1, $2, $3, $4)',
+      [user.id, tokenHash, tokenSelector, expiresAt],
+    )
+    res.cookie('rt', `${rawToken}.${tokenSelector}`, COOKIE_OPTS).json(ok({ accessToken, user }))
+  } catch (e: unknown) {
+    // Unique violation on email — user already exists
+    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === '23505') {
+      res.status(409).json(err('E-Mail bereits registriert')); return
+    }
+    throw e
+  }
 })
