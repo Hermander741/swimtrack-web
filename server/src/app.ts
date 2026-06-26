@@ -7,6 +7,8 @@ import { resultsRouter } from './routes/results'
 import { liveRouter } from './routes/live'
 import { swimmerRouter } from './routes/swimmer'
 import { authRouter } from './routes/auth'
+import { invitationsRouter } from './routes/invitations'
+import { usersRouter } from './routes/users'
 
 export function createApp() {
   const app = express()
@@ -30,6 +32,8 @@ export function createApp() {
   app.use('/api/meets', resultsRouter)
   app.use('/api/swimmer', swimmerRouter)
   app.use('/api/auth', authRouter)
+  app.use('/api/invitations', invitationsRouter)
+  app.use('/api/users', usersRouter)
 
   return app
 }
