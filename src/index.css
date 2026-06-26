@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+@theme {
+  --color-ocean-950: #050D1A;
+  --color-ocean-900: #0A1628;
+  --color-ocean-800: #0F2040;
+  --color-teal-500: #14B8A6;
+  --color-teal-400: #2DD4BF;
+  --color-sky-500: #0EA5E9;
+  --color-sky-400: #38BDF8;
+  --color-slate-400: #94A3B8;
+  --color-slate-600: #475569;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -7,17 +19,17 @@
   }
 
   html {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background: #0f172a;
+    background: #050D1A;
     overscroll-behavior: none;
   }
 
   body {
     margin: 0;
     padding: 0;
-    background: #0f172a;
-    color: #f1f5f9;
+    background: #050D1A;
+    color: #ffffff;
     min-height: 100dvh;
   }
 
@@ -26,13 +38,8 @@
     min-height: 100dvh;
   }
 
-  input[type="date"] {
-    color-scheme: dark;
-  }
-
-  select option {
-    background: #1e293b;
-    color: #f1f5f9;
+  input, textarea, select {
+    font-family: inherit;
   }
 }
 
@@ -44,11 +51,53 @@
     display: none;
   }
 
-  .safe-bottom {
-    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 
-  .safe-top {
-    padding-top: max(env(safe-area-inset-top), 0px);
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 16px);
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 40px rgba(20, 184, 166, 0.15);
+  }
+
+  .glow-sky {
+    box-shadow: 0 0 40px rgba(14, 165, 233, 0.15);
+  }
+}
+
+@keyframes slide-in-from-bottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation-fill-mode: both;
+  }
+
+  .slide-in-from-bottom {
+    animation-name: slide-in-from-bottom;
+    animation-duration: 300ms;
+    animation-timing-function: ease-out;
+  }
+
+  .duration-300 {
+    animation-duration: 300ms;
   }
 }

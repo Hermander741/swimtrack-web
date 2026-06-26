@@ -90,3 +90,33 @@ export interface SwimmerResult {
   course: 'LB' | 'KB'
   result: SwimResult
 }
+
+// --- Mermaids App types ---
+
+export type Role = 'admin' | 'trainer' | 'eltern' | 'mitglied'
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: Role
+  avatar_color: string
+  created_at: string
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  role: Role
+  expires_at: string
+}
+
+export interface Document {
+  id: string
+  name: string
+  category: 'anmeldeformular' | 'vereinsdokument' | 'sonstiges'
+  filename: string
+  size_bytes: number
+  uploaded_by: string | null
+  created_at: string
+}
