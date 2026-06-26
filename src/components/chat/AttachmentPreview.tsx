@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { MessageAttachment } from '../../types'
 import { downloadAttachment } from '../../api/chat'
 
@@ -13,26 +13,42 @@ function formatBytes(b: number) {
 export function AttachmentPreview({ attachment }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const revokeTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   const isImage = attachment.mime_type.startsWith('image/')
   const isVideo = attachment.mime_type.startsWith('video/')
 
+  useEffect(() => {
+    return () => { revokeTimers.current.forEach(clearTimeout) }
+  }, [])
+
   async function handleDownload() {
     setLoading(true)
-    const url = await downloadAttachment(attachment.id)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = attachment.original_name
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
-    setLoading(false)
+    try {
+      const url = await downloadAttachment(attachment.id)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = attachment.original_name
+      a.click()
+      const t = setTimeout(() => URL.revokeObjectURL(url), 5000)
+      revokeTimers.current.push(t)
+    } catch {
+      console.error('Failed to download attachment')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function loadMedia() {
     if (blobUrl) return
     setLoading(true)
-    const url = await downloadAttachment(attachment.id)
-    setBlobUrl(url)
-    setLoading(false)
+    try {
+      const url = await downloadAttachment(attachment.id)
+      setBlobUrl(url)
+    } catch {
+      console.error('Failed to load media')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (isImage) {

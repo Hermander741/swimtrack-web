@@ -48,7 +48,7 @@ export function MessageList({
     }
     const last = messages[messages.length - 1]
     if (last) onMarkRead(last.id)
-  }, [messages])
+  }, [messages, onMarkRead])
 
   useEffect(() => {
     if (!topRef.current || !hasMore) return
