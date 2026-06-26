@@ -60,40 +60,44 @@ invitationsRouter.get('/:token', async (req, res) => {
 })
 
 invitationsRouter.post('/:token/accept', async (req, res) => {
-  const { name, password } = req.body as { name?: string; password?: string }
-  if (!name || !password) { res.status(400).json(err('name and password required')); return }
-  if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
-
-  // Atomically claim the invitation — only one concurrent request succeeds
-  const { rows: invRows } = await pool.query<{ id: string; email: string; role: Role }>(
-    `UPDATE invitations SET used_at = now()
-     WHERE token = $1 AND used_at IS NULL AND expires_at > now()
-     RETURNING id, email, role`,
-    [req.params.token],
-  )
-  if (!invRows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
-
-  const inv = invRows[0]
-  const hash = await bcrypt.hash(password, 12)
   try {
-    const { rows: users } = await pool.query<User>(
-      `INSERT INTO users (email, name, role, password_hash)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, email, name, role, avatar_color, created_at`,
-      [inv.email, name.trim(), inv.role, hash],
+    const { name, password } = req.body as { name?: string; password?: string }
+    if (!name || !password) { res.status(400).json(err('name and password required')); return }
+    if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
+
+    // Atomically claim the invitation — only one concurrent request succeeds
+    const { rows: invRows } = await pool.query<{ id: string; email: string; role: Role }>(
+      `UPDATE invitations SET used_at = now()
+       WHERE token = $1 AND used_at IS NULL AND expires_at > now()
+       RETURNING id, email, role`,
+      [req.params.token],
     )
-    const user = users[0]
-    const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
-    await pool.query(
-      'INSERT INTO refresh_tokens (user_id, token_hash, token_selector, expires_at) VALUES ($1, $2, $3, $4)',
-      [user.id, tokenHash, tokenSelector, expiresAt],
-    )
-    res.cookie('rt', `${rawToken}.${tokenSelector}`, COOKIE_OPTS).json(ok({ accessToken, user }))
-  } catch (e: unknown) {
-    // Unique violation on email — user already exists
-    if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === '23505') {
-      res.status(409).json(err('E-Mail bereits registriert')); return
+    if (!invRows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
+
+    const inv = invRows[0]
+    const hash = await bcrypt.hash(password, 12)
+    try {
+      const { rows: users } = await pool.query<User>(
+        `INSERT INTO users (email, name, role, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, email, name, role, avatar_color, created_at`,
+        [inv.email, name.trim(), inv.role, hash],
+      )
+      const user = users[0]
+      const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
+      await pool.query(
+        'INSERT INTO refresh_tokens (user_id, token_hash, token_selector, expires_at) VALUES ($1, $2, $3, $4)',
+        [user.id, tokenHash, tokenSelector, expiresAt],
+      )
+      res.cookie('rt', `${rawToken}.${tokenSelector}`, COOKIE_OPTS).json(ok({ accessToken, user }))
+    } catch (e: unknown) {
+      // Unique violation on email — user already exists
+      if (e && typeof e === 'object' && 'code' in e && (e as { code: string }).code === '23505') {
+        res.status(409).json(err('E-Mail bereits registriert')); return
+      }
+      throw e
     }
-    throw e
+  } catch (e) {
+    if (!res.headersSent) res.status(500).json(err('Interner Fehler'))
   }
 })
