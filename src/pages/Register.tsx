@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { apiRequest } from '../api/client'
-import { setAccessToken } from '../api/client'
+import { apiRequest, setAccessToken } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'

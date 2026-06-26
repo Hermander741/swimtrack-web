@@ -1,4 +1,4 @@
-import { apiRequest, setAccessToken } from './client'
+import { apiRequest, setAccessToken, BASE } from './client'
 import type { User } from '../types'
 
 export async function login(email: string, password: string) {
@@ -20,7 +20,7 @@ export async function me() {
 }
 
 export async function refreshToken() {
-  const res = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/auth/refresh`, {
+  const res = await fetch(`${BASE}/api/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   })

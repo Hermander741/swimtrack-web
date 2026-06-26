@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+export const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 let accessToken: string | null = null
 
@@ -8,11 +8,12 @@ export function getAccessToken() { return accessToken }
 async function tryRefresh(): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
-    if (!res.ok) return false
+    if (!res.ok) { accessToken = null; return false }
     const body = await res.json()
     accessToken = body.data.accessToken
     return true
   } catch {
+    accessToken = null
     return false
   }
 }
@@ -39,6 +40,10 @@ export async function apiRequest<T>(
     }
   }
 
-  const json = await res.json()
-  return json
+  try {
+    const json = await res.json()
+    return json
+  } catch {
+    return { ok: false, error: 'Ungültige Server-Antwort' }
+  }
 }
