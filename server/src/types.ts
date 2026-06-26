@@ -48,3 +48,34 @@ export type ApiResponse<T> = ApiOk<T> | ApiError
 
 export function ok<T>(data: T): ApiOk<T> { return { ok: true, data } }
 export function err(error: string): ApiError { return { ok: false, error } }
+
+export type Role = 'admin' | 'trainer' | 'eltern' | 'mitglied'
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: Role
+  avatar_color: string
+  created_at: string
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  role: Role
+  token: string
+  invited_by: string | null
+  expires_at: string
+  used_at: string | null
+}
+
+export interface Document {
+  id: string
+  name: string
+  category: 'anmeldeformular' | 'vereinsdokument' | 'sonstiges'
+  filename: string
+  size_bytes: number
+  uploaded_by: string | null
+  created_at: string
+}
