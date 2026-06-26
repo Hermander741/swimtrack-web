@@ -2,7 +2,7 @@ import { Server } from 'socket.io'
 import type { Server as HttpServer } from 'http'
 import { verifyAccess } from '../utils/jwt'
 import { pool } from '../db/pool'
-import { registerChatHandlers } from './chatHandlers'
+import { registerChatHandlers, messageTimestamps } from './chatHandlers'
 
 export const connectedUsers = new Map<string, Set<string>>()
 
@@ -48,6 +48,7 @@ export function setupSocket(httpServer: HttpServer) {
       const sockets = connectedUsers.get(userId)
       sockets?.delete(socket.id)
       if (sockets?.size === 0) connectedUsers.delete(userId)
+      messageTimestamps.delete(userId)
     })
 
     socket.on('error', (err) => {

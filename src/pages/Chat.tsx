@@ -32,6 +32,16 @@ export function Chat() {
     if (user) subscribePush().catch(() => {})
   }, [user])
 
+  // Deep-link from push notification: /chat?channel=<uuid>
+  useEffect(() => {
+    if (channels.length === 0) return
+    const params = new URLSearchParams(window.location.search)
+    const channelId = params.get('channel')
+    if (channelId && channels.find(c => c.id === channelId)) {
+      setActiveChannel(channelId)
+    }
+  }, [channels])
+
   function handleChannelCreated(ch: Channel) {
     setChannels(prev => [...prev, ch])
     setActiveChannel(ch.id)

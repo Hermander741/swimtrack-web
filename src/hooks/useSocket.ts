@@ -13,7 +13,8 @@ export function useSocket(): React.MutableRefObject<Socket | null> {
       reconnectionAttempts: 5,
     })
 
-    socket.on('auth-error', async () => {
+    socket.on('connect_error', async (err) => {
+      if (err.message !== 'auth-error') return
       const ok = await tryRefresh()
       if (ok) {
         socket.auth = { token: getAccessToken() ?? '' }

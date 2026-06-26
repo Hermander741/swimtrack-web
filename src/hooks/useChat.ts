@@ -14,6 +14,7 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({})
   const typingTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const loadedChannels = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     listChannels().then(res => {
@@ -128,7 +129,7 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
   const setActiveChannel = useCallback(async (id: string | null) => {
     setActiveChannelId(id)
     if (!id) return
-    if (messages[id]) return
+    if (loadedChannels.current.has(id)) return
     setLoadingMessages(true)
     const [msgsRes, pinsRes] = await Promise.all([listMessages(id), listPins(id)])
     if (msgsRes.ok) {
@@ -136,8 +137,9 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
       setHasMore(prev => ({ ...prev, [id]: msgsRes.data.length === 50 }))
     }
     if (pinsRes.ok) setPinnedMessages(prev => ({ ...prev, [id]: pinsRes.data }))
+    loadedChannels.current.add(id)
     setLoadingMessages(false)
-  }, [messages])
+  }, [])
 
   const loadMoreMessages = useCallback(async (channelId: string) => {
     const existing = messages[channelId]

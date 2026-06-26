@@ -9,14 +9,14 @@ const _pushNotifyPath = '../utils/pushNotify'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(import(_pushNotifyPath) as Promise<any>).then((m: any) => { pushToChannelMembers = m.pushToChannelMembers }).catch(() => {})
 
-// In-memory rate limit: max 30 messages per minute per socket
-const messageTimestamps = new Map<string, number[]>()
-function isRateLimited(socketId: string): boolean {
+// In-memory rate limit: max 30 messages per minute per user
+export const messageTimestamps = new Map<string, number[]>()
+function isRateLimited(userId: string): boolean {
   const now = Date.now()
-  const ts = (messageTimestamps.get(socketId) ?? []).filter(t => now - t < 60_000)
+  const ts = (messageTimestamps.get(userId) ?? []).filter(t => now - t < 60_000)
   if (ts.length >= 30) return true
   ts.push(now)
-  messageTimestamps.set(socketId, ts)
+  messageTimestamps.set(userId, ts)
   return false
 }
 
@@ -47,7 +47,7 @@ export function registerChatHandlers(io: Server, socket: Socket) {
     channelId: string; content?: string; replyTo?: string; attachmentIds?: string[]
   }) => {
     try {
-      if (isRateLimited(socket.id)) {
+      if (isRateLimited(user.id)) {
         socket.emit('error', { message: 'Zu viele Nachrichten' }); return
       }
       const canAccess = await userCanAccessChannel(user.id, user.role, data.channelId)
@@ -123,7 +123,13 @@ export function registerChatHandlers(io: Server, socket: Socket) {
       // Push notifications (graceful degradation if Task 5 not yet implemented)
       if (pushToChannelMembers) {
         const preview = data.content?.trim() ?? (attachments.length ? '📎 Anhang' : '')
-        await pushToChannelMembers(data.channelId, user.id, user.name, '', preview)
+        // Look up channel name for push notification title
+        const { rows: channelRows } = await pool.query<{ name: string }>(
+          'SELECT name FROM channels WHERE id = $1',
+          [data.channelId],
+        )
+        const channelName = channelRows[0]?.name ?? ''
+        await pushToChannelMembers(data.channelId, user.id, user.name, channelName, preview)
       }
     } catch { /* ignore */ }
   })
@@ -187,6 +193,7 @@ export function registerChatHandlers(io: Server, socket: Socket) {
 
   // add-reaction
   socket.on('add-reaction', async (data: { messageId: string; emoji: string }) => {
+    if (!data.emoji || typeof data.emoji !== 'string' || data.emoji.length > 10) return
     try {
       const { rows } = await pool.query<{ channel_id: string }>(
         'SELECT channel_id FROM messages WHERE id = $1', [data.messageId],
