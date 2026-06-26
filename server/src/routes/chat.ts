@@ -1,8 +1,11 @@
 import { Router } from 'express'
+import path from 'path'
+import fs from 'fs'
 import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import { userCanAccessChannel } from '../utils/channelAccess'
+import { chatUpload, chatUploadDir, SIZE_LIMITS } from '../middleware/uploadChat'
 
 export const chatRouter = Router()
 
@@ -123,6 +126,219 @@ chatRouter.delete('/channels/:id/members/:userId', requireAuth(['admin', 'traine
       `DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2`,
       [req.params.id, req.params.userId],
     )
+    res.json(ok(null))
+  } catch {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+interface DbMessage {
+  id: string; channel_id: string; sender_id: string | null; sender_name: string | null
+  sender_avatar_color: string | null; content: string | null; reply_to: string | null
+  reply_preview: string | null; edited_at: string | null; deleted_for_all: boolean
+  created_at: string
+}
+interface DbAttachment {
+  id: string; message_id: string | null; filename: string; original_name: string
+  mime_type: string; size_bytes: number; created_at: string
+}
+interface DbReaction { emoji: string; user_id: string; user_name: string }
+
+// GET /api/chat/channels/:id/messages?before=<uuid>&limit=50
+chatRouter.get('/channels/:id/messages', requireAuth(), async (req, res) => {
+  try {
+    const user = req.user!
+    const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id)
+    if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
+
+    const limit = Math.min(Number(req.query.limit) || 50, 100)
+    const before = req.query.before as string | undefined
+
+    let rows: DbMessage[]
+    if (before) {
+      const { rows: r } = await pool.query<DbMessage>(
+        `SELECT m.id, m.channel_id, m.sender_id, u.name AS sender_name,
+                u.avatar_color AS sender_avatar_color,
+                CASE WHEN dm.message_id IS NOT NULL THEN NULL
+                     WHEN m.deleted_for_all THEN NULL
+                     ELSE m.content END AS content,
+                m.reply_to,
+                (SELECT LEFT(rm.content, 80) FROM messages rm WHERE rm.id = m.reply_to) AS reply_preview,
+                m.edited_at, m.deleted_for_all, m.created_at
+         FROM messages m
+         LEFT JOIN users u ON u.id = m.sender_id
+         LEFT JOIN deleted_messages dm ON dm.message_id = m.id AND dm.user_id = $4
+         WHERE m.channel_id = $1
+           AND m.created_at < (SELECT created_at FROM messages WHERE id = $2)
+         ORDER BY m.created_at DESC
+         LIMIT $3`,
+        [req.params.id, before, limit, user.id],
+      )
+      rows = r
+    } else {
+      const { rows: r } = await pool.query<DbMessage>(
+        `SELECT m.id, m.channel_id, m.sender_id, u.name AS sender_name,
+                u.avatar_color AS sender_avatar_color,
+                CASE WHEN dm.message_id IS NOT NULL THEN NULL
+                     WHEN m.deleted_for_all THEN NULL
+                     ELSE m.content END AS content,
+                m.reply_to,
+                (SELECT LEFT(rm.content, 80) FROM messages rm WHERE rm.id = m.reply_to) AS reply_preview,
+                m.edited_at, m.deleted_for_all, m.created_at
+         FROM messages m
+         LEFT JOIN users u ON u.id = m.sender_id
+         LEFT JOIN deleted_messages dm ON dm.message_id = m.id AND dm.user_id = $3
+         WHERE m.channel_id = $1
+         ORDER BY m.created_at DESC
+         LIMIT $2`,
+        [req.params.id, limit, user.id],
+      )
+      rows = r
+    }
+
+    const messageIds = rows.map(r => r.id)
+    const [{ rows: attachments }, { rows: reactions }] = messageIds.length > 0
+      ? await Promise.all([
+          pool.query<DbAttachment>(
+            `SELECT id, message_id, filename, original_name, mime_type, size_bytes, created_at
+             FROM message_attachments WHERE message_id = ANY($1)`,
+            [messageIds],
+          ),
+          pool.query<DbReaction & { message_id: string }>(
+            `SELECT mr.message_id, mr.emoji, mr.user_id, u.name AS user_name
+             FROM message_reactions mr JOIN users u ON u.id = mr.user_id
+             WHERE mr.message_id = ANY($1)`,
+            [messageIds],
+          ),
+        ])
+      : [{ rows: [] }, { rows: [] }]
+
+    const messages = rows.reverse().map(m => ({
+      ...m,
+      attachments: attachments.filter(a => a.message_id === m.id),
+      reactions: reactions.filter(r => r.message_id === m.id),
+    }))
+
+    res.json(ok(messages))
+  } catch {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+// POST /api/chat/channels/:id/attachments — upload file
+chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
+  chatUpload.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) { res.status(400).json(err(uploadErr.message)); return }
+    try {
+      const user = req.user!
+      const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id)
+      if (!canAccess) {
+        if (req.file) fs.unlinkSync(req.file.path)
+        res.status(404).json(err('Channel nicht gefunden')); return
+      }
+      if (!req.file) { res.status(400).json(err('Keine Datei')); return }
+
+      // Magic-byte validation
+      const { fileTypeFromFile } = await import('file-type')
+      const detected = await fileTypeFromFile(req.file.path)
+      const allowed = Object.keys(SIZE_LIMITS)
+      if (!detected || !allowed.includes(detected.mime)) {
+        fs.unlinkSync(req.file.path)
+        res.status(400).json(err('Ungültiger Dateityp')); return
+      }
+      if (req.file.size > SIZE_LIMITS[detected.mime]) {
+        fs.unlinkSync(req.file.path)
+        res.status(400).json(err('Datei zu groß')); return
+      }
+
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO message_attachments (message_id, filename, original_name, mime_type, size_bytes)
+         VALUES (NULL, $1, $2, $3, $4) RETURNING id`,
+        [req.file.filename, req.file.originalname, detected.mime, req.file.size],
+      )
+      res.status(201).json(ok({ attachmentId: rows[0].id }))
+    } catch {
+      if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      res.status(500).json(err('Hochladen fehlgeschlagen'))
+    }
+  })
+})
+
+// GET /api/chat/attachments/:attachmentId/file
+chatRouter.get('/attachments/:attachmentId/file', requireAuth(), async (req, res) => {
+  try {
+    const { rows } = await pool.query<{ filename: string; original_name: string }>(
+      `SELECT a.filename, a.original_name FROM message_attachments a
+       JOIN messages m ON m.id = a.message_id
+       WHERE a.id = $1`,
+      [req.params.attachmentId],
+    )
+    if (!rows[0]) { res.status(404).json(err('Anhang nicht gefunden')); return }
+    const resolved = path.resolve(chatUploadDir, rows[0].filename)
+    const safeBase = path.resolve(chatUploadDir)
+    if (!resolved.startsWith(safeBase + path.sep)) {
+      res.status(400).json(err('Ungültiger Dateipfad')); return
+    }
+    if (!fs.existsSync(resolved)) { res.status(404).json(err('Datei nicht gefunden')); return }
+    res.setHeader('Content-Disposition', `attachment; filename="${rows[0].original_name}"`)
+    res.sendFile(resolved)
+  } catch {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+// GET /api/chat/channels/:id/pins
+chatRouter.get('/channels/:id/pins', requireAuth(), async (req, res) => {
+  try {
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
+    const { rows } = await pool.query(
+      `SELECT pm.id, pm.channel_id, pm.message_id, pm.pinned_by, pm.pinned_at,
+              m.content, m.sender_id, u.name AS sender_name, m.created_at AS message_created_at
+       FROM pinned_messages pm
+       JOIN messages m ON m.id = pm.message_id
+       LEFT JOIN users u ON u.id = m.sender_id
+       WHERE pm.channel_id = $1
+       ORDER BY pm.pinned_at DESC`,
+      [req.params.id],
+    )
+    res.json(ok(rows))
+  } catch {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+// POST /api/chat/channels/:id/pins
+chatRouter.post('/channels/:id/pins', requireAuth(['admin', 'trainer']), async (req, res) => {
+  try {
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
+    const { messageId } = req.body as { messageId?: string }
+    if (!messageId) { res.status(400).json(err('messageId erforderlich')); return }
+    const { rows } = await pool.query(
+      `INSERT INTO pinned_messages (channel_id, message_id, pinned_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (channel_id, message_id) DO NOTHING
+       RETURNING id, channel_id, message_id, pinned_by, pinned_at`,
+      [req.params.id, messageId, req.user!.id],
+    )
+    if (!rows[0]) { res.status(409).json(err('Bereits angepinnt')); return }
+    res.status(201).json(ok(rows[0]))
+  } catch {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+// DELETE /api/chat/channels/:id/pins/:pinId
+chatRouter.delete('/channels/:id/pins/:pinId', requireAuth(['admin', 'trainer']), async (req, res) => {
+  try {
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
+    const { rows } = await pool.query(
+      `DELETE FROM pinned_messages WHERE id = $1 AND channel_id = $2 RETURNING id`,
+      [req.params.pinId, req.params.id],
+    )
+    if (!rows[0]) { res.status(404).json(err('Pin nicht gefunden')); return }
     res.json(ok(null))
   } catch {
     res.status(500).json(err('Interner Fehler'))

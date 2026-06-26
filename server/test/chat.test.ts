@@ -95,3 +95,65 @@ describe('DELETE /api/chat/channels/:id', () => {
     expect(res.status).toBe(200)
   })
 })
+
+describe('GET /api/chat/channels/:id/messages', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 401 without auth', async () => {
+    const res = await request(createApp()).get('/api/chat/channels/c1/messages')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 when user has no channel access', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] }) // requireAuth
+      .mockResolvedValueOnce({ rows: [] })           // userCanAccessChannel
+    const res = await request(createApp())
+      .get('/api/chat/channels/c1/messages')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('returns messages array', async () => {
+    const fakeMsg = { id: 'm1', channel_id: 'c1', sender_id: 'u1', sender_name: 'Admin',
+      sender_avatar_color: '#0EA5E9', content: 'Hallo', reply_to: null, reply_preview: null,
+      edited_at: null, deleted_for_all: false, created_at: new Date().toISOString() }
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] })  // requireAuth
+      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // userCanAccessChannel
+      .mockResolvedValueOnce({ rows: [fakeMsg] })    // messages query
+      .mockResolvedValueOnce({ rows: [] })           // attachments
+      .mockResolvedValueOnce({ rows: [] })           // reactions
+    const res = await request(createApp())
+      .get('/api/chat/channels/c1/messages')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.data)).toBe(true)
+  })
+})
+
+describe('POST /api/chat/channels/:id/pins', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 403 for non-trainer', async () => {
+    const memberToken = jwt.sign({ sub: 'u3', email: 'm@m.at', role: 'mitglied' }, 'test-secret-for-vitest', { expiresIn: '15m' })
+    mockPool.query.mockResolvedValueOnce({ rows: [{ id: 'u3', role: 'mitglied' }] })
+    const res = await request(createApp())
+      .post('/api/chat/channels/c1/pins')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ messageId: 'm1' })
+    expect(res.status).toBe(403)
+  })
+
+  it('pins a message for trainer', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [trainerUser] })
+      .mockResolvedValueOnce({ rows: [{ '?column?': 1 }] }) // access check
+      .mockResolvedValueOnce({ rows: [{ id: 'p1', channel_id: 'c1', message_id: 'm1', pinned_by: 'u2', pinned_at: new Date().toISOString() }] })
+    const res = await request(createApp())
+      .post('/api/chat/channels/c1/pins')
+      .set('Authorization', `Bearer ${trainerToken}`)
+      .send({ messageId: 'm1' })
+    expect(res.status).toBe(201)
+  })
+})
