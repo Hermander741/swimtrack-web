@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
+import type { ReactNode } from 'react'
 
 interface ModalProps {
   open: boolean
   onClose: () => void
   title: string
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function Modal({ open, onClose, title, children }: ModalProps) {

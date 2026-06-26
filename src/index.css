@@ -73,6 +73,16 @@
   .glow-sky {
     box-shadow: 0 0 40px rgba(14, 165, 233, 0.15);
   }
+
+  .animate-in {
+    animation-fill-mode: both;
+  }
+
+  .slide-in-from-bottom {
+    animation-name: slide-in-from-bottom;
+    animation-duration: 300ms;
+    animation-timing-function: ease-out;
+  }
 }
 
 @keyframes slide-in-from-bottom {
@@ -83,21 +93,5 @@
   to {
     transform: translateY(0);
     opacity: 1;
-  }
-}
-
-@layer utilities {
-  .animate-in {
-    animation-fill-mode: both;
-  }
-
-  .slide-in-from-bottom {
-    animation-name: slide-in-from-bottom;
-    animation-duration: 300ms;
-    animation-timing-function: ease-out;
-  }
-
-  .duration-300 {
-    animation-duration: 300ms;
   }
 }

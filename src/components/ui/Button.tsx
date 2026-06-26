@@ -1,6 +1,6 @@
-import React from 'react'
+import type { ButtonHTMLAttributes } from 'react'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   loading?: boolean
 }
