@@ -120,3 +120,62 @@ export interface Document {
   uploaded_by: string | null
   created_at: string
 }
+
+// --- Mermaids Chat types ---
+
+export type MinRole = 'admin' | 'trainer' | 'eltern' | 'mitglied'
+
+export interface Channel {
+  id: string
+  name: string
+  description: string | null
+  min_role: MinRole
+  created_by: string | null
+  is_archived: boolean
+  created_at: string
+  last_message_id?: string | null
+}
+
+export interface MessageAttachment {
+  id: string
+  message_id: string | null
+  filename: string
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  created_at: string
+}
+
+export interface MessageReaction {
+  emoji: string
+  user_id: string
+  user_name: string
+  message_id?: string
+}
+
+export interface Message {
+  id: string
+  channel_id: string
+  sender_id: string | null
+  sender_name: string | null
+  sender_avatar_color: string | null
+  content: string | null
+  reply_to: string | null
+  reply_preview: string | null
+  edited_at: string | null
+  deleted_for_all: boolean
+  attachments: MessageAttachment[]
+  reactions: MessageReaction[]
+  created_at: string
+}
+
+export interface PinnedMessage {
+  id: string
+  channel_id: string
+  message_id: string
+  content: string | null
+  sender_name: string | null
+  message_created_at: string
+  pinned_by: string | null
+  pinned_at: string
+}

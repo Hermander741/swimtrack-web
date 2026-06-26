@@ -5,7 +5,7 @@ let accessToken: string | null = null
 export function setAccessToken(t: string | null) { accessToken = t }
 export function getAccessToken() { return accessToken }
 
-async function tryRefresh(): Promise<boolean> {
+export async function tryRefresh(): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
     if (!res.ok) { accessToken = null; return false }
