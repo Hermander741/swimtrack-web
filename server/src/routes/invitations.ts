@@ -17,6 +17,11 @@ invitationsRouter.post('/', requireAuth(['admin', 'trainer']), async (req, res) 
     const validRoles: Role[] = ['admin', 'trainer', 'eltern', 'mitglied']
     if (!validRoles.includes(role)) { res.status(400).json(err('invalid role')); return }
 
+    if (req.user!.role === 'trainer' && role === 'admin') {
+      res.status(403).json({ ok: false, error: 'Trainer können keine Admins einladen' })
+      return
+    }
+
     // Check for existing user
     const { rows: existingUsers } = await pool.query(
       'SELECT id FROM users WHERE email = $1',

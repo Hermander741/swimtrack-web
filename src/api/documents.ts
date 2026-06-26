@@ -1,7 +1,5 @@
-import { apiRequest } from './client'
+import { BASE, apiRequest } from './client'
 import type { Document } from '../types'
-
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 export const listDocuments = (category?: string) =>
   apiRequest<Document[]>(`/api/documents${category ? `?category=${category}` : ''}`)
