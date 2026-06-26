@@ -1,10 +1,8 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
-import crypto from 'crypto'
 import rateLimit from 'express-rate-limit'
 import { pool } from '../db/pool'
-import { issueTokens, verifyAccess, COOKIE_OPTS } from '../utils/jwt'
-import { signAccess } from '../utils/jwt'
+import { issueTokens, COOKIE_OPTS, signAccess } from '../utils/jwt'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import type { User } from '../types'
@@ -26,29 +24,35 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
     res.status(401).json(err('Invalid credentials')); return
   }
 
-  const { accessToken, rawToken, tokenHash, expiresAt } = await issueTokens(user)
+  const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
   await pool.query(
-    'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-    [user.id, tokenHash, expiresAt],
+    'INSERT INTO refresh_tokens (user_id, token_hash, token_selector, expires_at) VALUES ($1, $2, $3, $4)',
+    [user.id, tokenHash, tokenSelector, expiresAt],
   )
 
   const { password_hash: _, ...safeUser } = user
-  res.cookie('rt', rawToken, COOKIE_OPTS).json(ok({ accessToken, user: safeUser }))
+  res.cookie('rt', `${rawToken}.${tokenSelector}`, COOKIE_OPTS).json(ok({ accessToken, user: safeUser }))
 })
 
 authRouter.post('/refresh', async (req, res) => {
-  const rawToken: string | undefined = req.cookies['rt']
-  if (!rawToken) { res.status(401).json(err('No refresh token')); return }
+  const rawCookie: string | undefined = req.cookies['rt']
+  if (!rawCookie) { res.status(401).json(err('No refresh token')); return }
+  const dotIndex = rawCookie.lastIndexOf('.')
+  if (dotIndex === -1) { res.status(401).json(err('Invalid refresh token')); return }
+  const rawToken = rawCookie.slice(0, dotIndex)
+  const tokenSelector = rawCookie.slice(dotIndex + 1)
 
-  const { rows } = await pool.query<{ id: string; user_id: string; token_hash: string; expires_at: string }>(
-    'SELECT id, user_id, token_hash, expires_at FROM refresh_tokens WHERE expires_at > now()',
+  const { rows } = await pool.query<{ id: string; user_id: string; token_hash: string }>(
+    'SELECT id, user_id, token_hash FROM refresh_tokens WHERE token_selector = $1 AND expires_at > now()',
+    [tokenSelector],
   )
-  const match = rows.find(r => bcrypt.compareSync(rawToken, r.token_hash))
-  if (!match) { res.status(401).json(err('Invalid refresh token')); return }
+  if (!rows[0] || !(await bcrypt.compare(rawToken, rows[0].token_hash))) {
+    res.status(401).json(err('Invalid refresh token')); return
+  }
 
   const { rows: users } = await pool.query<User>(
     'SELECT id, email, name, role, avatar_color, created_at FROM users WHERE id = $1',
-    [match.user_id],
+    [rows[0].user_id],
   )
   if (!users[0]) { res.status(401).json(err('User not found')); return }
 
@@ -57,13 +61,13 @@ authRouter.post('/refresh', async (req, res) => {
 })
 
 authRouter.post('/logout', async (req, res) => {
-  const rawToken: string | undefined = req.cookies['rt']
-  if (rawToken) {
-    const { rows } = await pool.query<{ id: string; token_hash: string }>(
-      'SELECT id, token_hash FROM refresh_tokens WHERE expires_at > now()',
-    )
-    const match = rows.find(r => bcrypt.compareSync(rawToken, r.token_hash))
-    if (match) await pool.query('DELETE FROM refresh_tokens WHERE id = $1', [match.id])
+  const rawCookie: string | undefined = req.cookies['rt']
+  if (rawCookie) {
+    const dotIndex = rawCookie.lastIndexOf('.')
+    if (dotIndex !== -1) {
+      const tokenSelector = rawCookie.slice(dotIndex + 1)
+      await pool.query('DELETE FROM refresh_tokens WHERE token_selector = $1', [tokenSelector])
+    }
   }
   res.clearCookie('rt', { path: '/' }).json(ok(null))
 })

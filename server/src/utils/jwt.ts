@@ -5,7 +5,6 @@ import type { CookieOptions } from 'express'
 import type { User } from '../types'
 
 const ACCESS_SECRET = process.env.JWT_SECRET!
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!
 const REFRESH_EXPIRES_MS = 30 * 24 * 60 * 60 * 1000
 
 export const COOKIE_OPTS: CookieOptions = {
@@ -31,6 +30,7 @@ export async function issueTokens(user: User) {
   const accessToken = signAccess(user)
   const rawToken = crypto.randomUUID()
   const tokenHash = await bcrypt.hash(rawToken, 12)
+  const tokenSelector = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
   const expiresAt = new Date(Date.now() + REFRESH_EXPIRES_MS)
-  return { accessToken, rawToken, tokenHash, expiresAt }
+  return { accessToken, rawToken, tokenHash, tokenSelector, expiresAt }
 }
