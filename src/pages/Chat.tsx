@@ -1,38 +1,32 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { PageShell } from '../components/layout/PageShell'
 import { ChannelList } from '../components/chat/ChannelList'
+import { MessageList } from '../components/chat/MessageList'
+import { MessageInput } from '../components/chat/MessageInput'
 import { useSocket } from '../hooks/useSocket'
 import { useChat } from '../hooks/useChat'
 import { useAuth } from '../hooks/useAuth'
 import { subscribePush } from '../api/push'
-import type { Channel } from '../types'
-
-function EmptyState() {
-  return (
-    <div className="hidden md:flex flex-1 items-center justify-center">
-      <p className="text-slate-400 text-sm">Channel auswählen</p>
-    </div>
-  )
-}
-
-function MessageViewPlaceholder({ channelId, onBack }: { channelId: string; onBack: () => void }) {
-  return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3">
-        <button onClick={onBack} className="md:hidden text-teal-400 text-sm">←</button>
-        <span className="text-white font-semibold">#{channelId}</span>
-      </div>
-      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-        Nachrichten — implementiert in Task 9
-      </div>
-    </div>
-  )
-}
+import type { Channel, Message } from '../types'
 
 export function Chat() {
   const { user } = useAuth()
   const socketRef = useSocket()
-  const { channels, setChannels, activeChannelId, setActiveChannel } = useChat(socketRef)
+  const {
+    channels, setChannels,
+    activeChannelId, setActiveChannel,
+    messages, loadMoreMessages,
+    pinnedMessages, setPinnedMessages,
+    typingUsers,
+    hasMore,
+    sendMessage, editMessage, deleteMessage,
+    addReaction, removeReaction,
+    markRead,
+  } = useChat(socketRef)
+
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
+  const [editingMsg, setEditingMsg] = useState<Message | null>(null)
+  const [editContent, setEditContent] = useState('')
 
   useEffect(() => {
     if (user) subscribePush().catch(() => {})
@@ -43,22 +37,114 @@ export function Chat() {
     setActiveChannel(ch.id)
   }
 
+  function handleEdit(msg: Message) {
+    setEditingMsg(msg)
+    setEditContent(msg.content ?? '')
+  }
+
+  function handleSubmitEdit() {
+    if (!editingMsg || !editContent.trim()) return
+    editMessage(editingMsg.id, editContent.trim())
+    setEditingMsg(null)
+    setEditContent('')
+  }
+
+  const activeChannel = channels.find(c => c.id === activeChannelId)
+  const activeMessages = activeChannelId ? (messages[activeChannelId] ?? []) : []
+  const activePins = activeChannelId ? (pinnedMessages[activeChannelId] ?? []) : []
+  const activeTyping = activeChannelId ? (typingUsers[activeChannelId] ?? []) : []
+  const activeHasMore = activeChannelId ? (hasMore[activeChannelId] ?? false) : false
+
+  function handleTypingStart() {
+    if (activeChannelId) socketRef.current?.emit('typing-start', { channelId: activeChannelId })
+  }
+  function handleTypingStop() {
+    if (activeChannelId) socketRef.current?.emit('typing-stop', { channelId: activeChannelId })
+  }
+
   return (
     <PageShell title="Chat">
       <div className="flex h-full -mx-4 -mt-4">
+        {/* Channel sidebar */}
         <div className={`w-full md:w-72 md:block border-r border-white/10 ${activeChannelId ? 'hidden md:block' : 'block'}`}>
           <ChannelList
             channels={channels}
             activeChannelId={activeChannelId}
-            onSelect={setActiveChannel}
+            onSelect={id => { setReplyTo(null); setEditingMsg(null); setActiveChannel(id) }}
             onChannelCreated={handleChannelCreated}
           />
         </div>
-        <div className={`flex-1 flex flex-col ${activeChannelId ? 'block' : 'hidden md:flex'}`}>
-          {activeChannelId
-            ? <MessageViewPlaceholder channelId={activeChannelId} onBack={() => setActiveChannel(null)} />
-            : <EmptyState />
-          }
+
+        {/* Message view */}
+        <div className={`flex-1 flex flex-col ${activeChannelId ? 'flex' : 'hidden md:flex'}`}>
+          {activeChannelId && activeChannel ? (
+            <>
+              <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
+                <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 text-sm">←</button>
+                <span className="text-white font-semibold">#{activeChannel.name}</span>
+                {activeChannel.description && (
+                  <span className="text-slate-400 text-sm truncate hidden md:block">{activeChannel.description}</span>
+                )}
+              </div>
+
+              {editingMsg && (
+                <div className="px-4 py-2 bg-teal-500/10 border-b border-teal-500/20 flex items-center gap-2 shrink-0">
+                  <span className="text-teal-400 text-sm flex-1">Nachricht bearbeiten</span>
+                  <button onClick={() => setEditingMsg(null)} className="text-slate-400 hover:text-white text-sm">Abbrechen</button>
+                </div>
+              )}
+
+              <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                <MessageList
+                  channelId={activeChannelId}
+                  messages={activeMessages}
+                  pinnedMessages={activePins}
+                  typingUsers={activeTyping}
+                  hasMore={activeHasMore}
+                  onLoadMore={() => loadMoreMessages(activeChannelId)}
+                  onMarkRead={lastId => markRead(activeChannelId, lastId)}
+                  onUnpinned={pinId => setPinnedMessages(prev => ({
+                    ...prev,
+                    [activeChannelId]: (prev[activeChannelId] ?? []).filter(p => p.id !== pinId),
+                  }))}
+                  onReply={setReplyTo}
+                  onEdit={handleEdit}
+                  onDelete={deleteMessage}
+                  onReact={addReaction}
+                  onRemoveReact={removeReaction}
+                />
+
+                {editingMsg ? (
+                  <div className="border-t border-white/10 px-4 py-3 flex gap-2 shrink-0">
+                    <input
+                      value={editContent}
+                      onChange={e => setEditContent(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSubmitEdit() }}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-teal-500/50"
+                    />
+                    <button onClick={handleSubmitEdit} className="px-4 py-2 bg-teal-500 rounded-xl text-white text-sm">
+                      Speichern
+                    </button>
+                  </div>
+                ) : (
+                  <MessageInput
+                    channelId={activeChannelId}
+                    replyTo={replyTo}
+                    onCancelReply={() => setReplyTo(null)}
+                    onSend={(content, replyToId, attachmentIds) =>
+                      sendMessage(activeChannelId, content, replyToId, attachmentIds)
+                    }
+                    onTypingStart={handleTypingStart}
+                    onTypingStop={handleTypingStop}
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-slate-400 text-sm">Channel auswählen</p>
+            </div>
+          )}
         </div>
       </div>
     </PageShell>
