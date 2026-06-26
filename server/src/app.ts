@@ -6,6 +6,7 @@ import { meetsRouter } from './routes/meets'
 import { resultsRouter } from './routes/results'
 import { liveRouter } from './routes/live'
 import { swimmerRouter } from './routes/swimmer'
+import { authRouter } from './routes/auth'
 
 export function createApp() {
   const app = express()
@@ -28,6 +29,7 @@ export function createApp() {
   app.use('/api/meets', liveRouter)
   app.use('/api/meets', resultsRouter)
   app.use('/api/swimmer', swimmerRouter)
+  app.use('/api/auth', authRouter)
 
   return app
 }
