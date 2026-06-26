@@ -267,20 +267,24 @@ chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
 // GET /api/chat/attachments/:attachmentId/file
 chatRouter.get('/attachments/:attachmentId/file', requireAuth(), async (req, res) => {
   try {
-    const { rows } = await pool.query<{ filename: string; original_name: string }>(
-      `SELECT a.filename, a.original_name FROM message_attachments a
+    const { rows } = await pool.query<{ filename: string; original_name: string; channel_id: string }>(
+      `SELECT a.filename, a.original_name, m.channel_id
+       FROM message_attachments a
        JOIN messages m ON m.id = a.message_id
        WHERE a.id = $1`,
       [req.params.attachmentId],
     )
     if (!rows[0]) { res.status(404).json(err('Anhang nicht gefunden')); return }
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, rows[0].channel_id)
+    if (!canAccess) { res.status(403).json(err('Kein Zugriff')); return }
     const resolved = path.resolve(chatUploadDir, rows[0].filename)
     const safeBase = path.resolve(chatUploadDir)
     if (!resolved.startsWith(safeBase + path.sep)) {
       res.status(400).json(err('Ungültiger Dateipfad')); return
     }
     if (!fs.existsSync(resolved)) { res.status(404).json(err('Datei nicht gefunden')); return }
-    res.setHeader('Content-Disposition', `attachment; filename="${rows[0].original_name}"`)
+    const safeFilename = encodeURIComponent(rows[0].original_name)
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${safeFilename}`)
     res.sendFile(resolved)
   } catch {
     res.status(500).json(err('Interner Fehler'))

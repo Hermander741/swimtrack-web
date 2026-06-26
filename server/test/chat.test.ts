@@ -157,3 +157,33 @@ describe('POST /api/chat/channels/:id/pins', () => {
     expect(res.status).toBe(201)
   })
 })
+
+describe('GET /api/chat/attachments/:attachmentId/file', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 401 without auth', async () => {
+    const res = await request(createApp()).get('/api/chat/attachments/att1/file')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 when attachment not linked to a message', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] })  // requireAuth
+      .mockResolvedValueOnce({ rows: [] })            // attachment query (no row = not linked)
+    const res = await request(createApp())
+      .get('/api/chat/attachments/att1/file')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 403 when user has no channel access', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [adminUser] })  // requireAuth
+      .mockResolvedValueOnce({ rows: [{ filename: 'f.jpg', original_name: 'photo.jpg', channel_id: 'c1' }] }) // attachment
+      .mockResolvedValueOnce({ rows: [] })            // userCanAccessChannel — no access
+    const res = await request(createApp())
+      .get('/api/chat/attachments/att1/file')
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.status).toBe(403)
+  })
+})
