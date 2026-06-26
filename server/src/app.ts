@@ -11,6 +11,7 @@ import { invitationsRouter } from './routes/invitations'
 import { usersRouter } from './routes/users'
 import { documentsRouter } from './routes/documents'
 import { chatRouter } from './routes/chat'
+import { pushRouter } from './routes/push'
 
 export function createApp() {
   const app = express()
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/users', usersRouter)
   app.use('/api/documents', documentsRouter)
   app.use('/api/chat', chatRouter)
+  app.use('/api/push', pushRouter)
 
   return app
 }
