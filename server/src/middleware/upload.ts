@@ -3,7 +3,7 @@ import path from 'path'
 import crypto from 'crypto'
 import fs from 'fs'
 
-const uploadDir = process.env.UPLOAD_DIR ?? path.join(__dirname, '../../uploads')
+export const uploadDir = process.env.UPLOAD_DIR ?? path.join(__dirname, '../../uploads')
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
 
 const storage = multer.diskStorage({

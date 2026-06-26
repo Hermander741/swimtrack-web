@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
-import { upload } from '../middleware/upload'
+import { upload, uploadDir } from '../middleware/upload'
 import { ok, err } from '../types'
 import type { Document } from '../types'
 
@@ -49,7 +49,10 @@ documentsRouter.post('/', requireAuth(['admin', 'trainer']), (req, res) => {
       )
       res.status(201).json(ok(rows[0]))
     } catch (e) {
-      res.status(500).json(err('Internal server error'))
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path)
+      }
+      res.status(500).json(err('Hochladen fehlgeschlagen'))
     }
   })
 })
@@ -61,10 +64,14 @@ documentsRouter.get('/:id/file', requireAuth(), async (req, res) => {
       [req.params.id],
     )
     if (!rows[0]) { res.status(404).json(err('Document not found')); return }
-    const uploadDir = process.env.UPLOAD_DIR ?? path.join(__dirname, '../../uploads')
     const filePath = path.join(uploadDir, rows[0].filename)
-    if (!fs.existsSync(filePath)) { res.status(404).json(err('File not found on disk')); return }
-    res.sendFile(path.resolve(filePath))
+    const resolved = path.resolve(filePath)
+    const safeBase = path.resolve(uploadDir)
+    if (!resolved.startsWith(safeBase + path.sep) && resolved !== safeBase) {
+      res.status(400).json(err('Invalid file path')); return
+    }
+    if (!fs.existsSync(resolved)) { res.status(404).json(err('File not found on disk')); return }
+    res.sendFile(resolved)
   } catch (e) {
     res.status(500).json(err('Internal server error'))
   }
@@ -81,7 +88,6 @@ documentsRouter.delete('/:id', requireAuth(['admin', 'trainer']), async (req, re
     const { rows } = await pool.query<{ filename: string }>(query, values)
     if (!rows[0]) { res.status(404).json(err('Document not found or no permission')); return }
 
-    const uploadDir = process.env.UPLOAD_DIR ?? path.join(__dirname, '../../uploads')
     const filePath = path.join(uploadDir, rows[0].filename)
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
     res.json(ok(null))
