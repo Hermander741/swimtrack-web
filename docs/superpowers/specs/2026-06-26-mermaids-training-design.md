@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS training_groups (
   name        TEXT NOT NULL,
   description TEXT,
   color       TEXT NOT NULL DEFAULT '#0EA5E9',
+  channel_id  UUID REFERENCES channels(id) ON DELETE SET NULL, -- optional: verknüpfter Chat-Channel für System-Nachrichten
   created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -65,7 +66,7 @@ CREATE TABLE IF NOT EXISTS training_blocks (
 CREATE TABLE IF NOT EXISTS training_templates (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id     UUID REFERENCES training_groups(id) ON DELETE CASCADE,
-  day_of_week  SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Montag … 6=Sonntag
+  day_of_week  SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Montag, 1=Dienstag, …, 6=Sonntag (ISO-Woche, NICHT JS Date.getDay())
   start_time   TIME NOT NULL,
   duration_min INTEGER NOT NULL DEFAULT 90,
   location     TEXT,
@@ -85,7 +86,7 @@ CREATE TABLE IF NOT EXISTS training_template_blocks (
 
 CREATE TABLE IF NOT EXISTS training_sessions (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id     UUID REFERENCES training_groups(id) ON DELETE CASCADE, -- NULL für externe Termine ohne Gruppe
+  group_id     UUID REFERENCES training_groups(id) ON DELETE CASCADE, -- NULL nur wenn is_external = true
   template_id  UUID REFERENCES training_templates(id) ON DELETE SET NULL,
   title        TEXT NOT NULL,
   date         DATE NOT NULL,
@@ -95,6 +96,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
   notes        TEXT,
   is_cancelled BOOLEAN NOT NULL DEFAULT false,
   is_external  BOOLEAN NOT NULL DEFAULT false,
+  CONSTRAINT group_or_external CHECK (group_id IS NOT NULL OR is_external = true),
   created_by   UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -104,8 +106,16 @@ CREATE INDEX IF NOT EXISTS idx_training_sessions_group ON training_sessions(grou
 
 CREATE TABLE IF NOT EXISTS training_session_blocks (
   session_id    UUID REFERENCES training_sessions(id) ON DELETE CASCADE,
-  block_id      UUID REFERENCES training_blocks(id) ON DELETE CASCADE,
+  block_id      UUID REFERENCES training_blocks(id) ON DELETE SET NULL, -- optionale Referenz zur Bibliothek
   position      SMALLINT NOT NULL,
+  -- Snapshot der Block-Inhalte zum Zeitpunkt der Session-Erstellung (unveränderlich bei späteren Block-Edits)
+  name          TEXT NOT NULL,
+  category      TEXT NOT NULL,
+  distance_m    INTEGER,
+  stroke        TEXT,
+  reps          INTEGER,
+  rest_s        INTEGER,
+  description   TEXT,
   override_note TEXT,
   PRIMARY KEY (session_id, position)
 );
@@ -173,7 +183,7 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 
 | Method | Path | Auth | Beschreibung |
 |---|---|---|---|
-| GET | `/api/training/sessions/ical` | Token-Param (`?token=`) | RFC 5545 `.ics`-Feed (eigene Gruppen, 90 Tage) — muss vor `/:id` registriert sein |
+| GET | `/api/training/sessions/ical` | Token-Param (`?token=`) | RFC 5545 `.ics`-Feed (eigene Gruppen, default 365 Tage, `?days=N` max 365) — muss vor `/:id` registriert sein |
 | GET | `/api/training/ical-token` | JWT | Eigenen iCal-Token abrufen (erstellt ihn bei Bedarf) |
 | POST | `/api/training/ical-token/regenerate` | JWT | Token rotieren (invalidiert alten Link) |
 
@@ -225,6 +235,26 @@ Bibliothek wird als filterbare Liste (Kategorie-Tabs) angezeigt. Trainer tippt B
 
 Im Profil (`/mehr` → Profil): "Kalender abonnieren" → zeigt Abo-URL zum Kopieren + Download-Button für einmalige `.ics`-Datei. Token-Rotation per Button ("Link zurücksetzen").
 
+## day_of_week Konvention
+
+`day_of_week` verwendet **0=Montag … 6=Sonntag** (ISO-Wochenbeginn, europäischer Standard).
+
+Dies unterscheidet sich bewusst von `Date.getDay()` in JavaScript (0=Sonntag). Im Frontend wird ein Mapping-Array verwendet:
+
+```ts
+const DOW_LABEL = ['Mo','Di','Mi','Do','Fr','Sa','So'] // Index 0=Montag
+```
+
+Konversion von JS-Date zu DB-Wert: `(date.getDay() + 6) % 7`
+
+## Absage-Benachrichtigung
+
+Wenn `PATCH /api/training/sessions/:id` das Feld `is_cancelled: true` setzt UND die zugehörige Gruppe eine `channel_id` hat, postet der Server automatisch eine System-Nachricht in den verknüpften Chat-Channel:
+
+> ⚠️ Training **[Titel]** am **[Datum, Zeit]** wurde abgesagt.
+
+Technische Umsetzung: direkte DB-Insert in `messages` (kein Socket-Emit nötig — der nächste `new-message`-Event wird über die bestehende Chat-Infrastruktur verteilt, sobald Socket-Clients die Nachricht über ihren bestehenden Channel-Room empfangen).
+
 ## Externe Termine
 
 `is_external: true` + kein Template-Bezug. Erscheinen in Listen- und Kalenderansicht mit orangefarbenem Chip statt Gruppenfarbe. Kein Baustein-Set nötig — nur Titel, Datum, Zeit, Ort und optionale Notizen.
@@ -232,7 +262,7 @@ Im Profil (`/mehr` → Profil): "Kalender abonnieren" → zeigt Abo-URL zum Kopi
 ## iCal-Details
 
 - Bibliothek: `ical-generator`
-- Feed enthält Sessions der eigenen Gruppen für die nächsten 90 Tage
+- Feed enthält Sessions der eigenen Gruppen für die nächsten 365 Tage (default), via `?days=N` konfigurierbar (max 365)
 - Pro Session: `SUMMARY` = Titel, `DTSTART`/`DTEND`, `LOCATION`, `DESCRIPTION` = Bausteine als Textliste
 - Content-Type: `text/calendar; charset=utf-8`
 - Token ist UUID, wird beim ersten Abruf von `/api/training/ical-token` automatisch erstellt
@@ -244,6 +274,8 @@ Im Profil (`/mehr` → Profil): "Kalender abonnieren" → zeigt Abo-URL zum Kopi
 | Gruppen-Sichtbarkeit | Mitglieder sehen nur eigene Gruppen (WHERE-Klausel mit `training_group_members`) |
 | Trainer-Aktionen | Backend prüft `role IN ('trainer','admin')` auf allen schreibenden Endpunkten |
 | Baustein-Bearbeitung | Backend prüft `created_by = req.user.id OR role = 'admin'` |
+| Block-Snapshot-Integrität | `training_session_blocks` speichert Block-Inhalte als Snapshot — nachträgliche Bibliotheks-Edits ändern vergangene Sessions nicht |
+| day_of_week | Konversion JS→DB: `(date.getDay() + 6) % 7` — kein direkter `getDay()`-Wert in DB schreiben |
 | iCal-Token | UUID, kein JWT nötig — Rotation invalidiert alten Token sofort |
 | Template-Generate | Duplizierungsschutz per Application-Logik: `POST /generate` überspringt Gruppe/Datum-Kombinationen bei denen bereits eine Session aus diesem Template existiert |
 
