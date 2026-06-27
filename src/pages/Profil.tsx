@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe } from '../api/users'
+import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
+import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
@@ -21,6 +23,13 @@ export function Profil() {
   const [pwError, setPwError] = useState('')
   const [pwLoading, setPwLoading] = useState(false)
   const [pwSuccess, setPwSuccess] = useState(false)
+  const [icalToken, setICalToken] = useState<ICalToken | null>(null)
+  const [icalLoading, setICalLoading] = useState(false)
+  const [icalCopied, setICalCopied] = useState(false)
+
+  useEffect(() => {
+    getICalToken().then(res => { if (res.ok) setICalToken(res.data) })
+  }, [])
 
   async function handleLogout() {
     await logout()
@@ -53,6 +62,21 @@ export function Profil() {
     } else {
       setPwError(res.error)
     }
+  }
+
+  async function handleRegenerateIcal() {
+    if (!confirm('Alten Kalender-Link ungültig machen und neuen erstellen?')) return
+    setICalLoading(true)
+    const res = await regenerateICalToken()
+    setICalLoading(false)
+    if (res.ok) setICalToken(res.data)
+  }
+
+  async function handleCopyIcal() {
+    if (!icalToken) return
+    await navigator.clipboard.writeText(icalUrl(icalToken.token))
+    setICalCopied(true)
+    setTimeout(() => setICalCopied(false), 2000)
   }
 
   if (!user) return null
@@ -112,6 +136,34 @@ export function Profil() {
           </form>
         )}
       </Modal>
+
+      <Card className="mb-4">
+        <h3 className="text-sm font-semibold text-white mb-1">Kalender abonnieren</h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Deinen Trainingsplan in Outlook, Apple Calendar oder Google Calendar einbinden.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={handleCopyIcal} className="flex-1 text-xs py-2">
+            {icalCopied ? '✓ Kopiert' : 'Link kopieren'}
+          </Button>
+          {icalToken && (
+            <a
+              href={icalUrl(icalToken.token)}
+              download="mermaids-training.ics"
+              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold glass text-white hover:bg-white/10 transition-all"
+            >
+              .ics herunterladen
+            </a>
+          )}
+        </div>
+        <button
+          onClick={handleRegenerateIcal}
+          disabled={icalLoading}
+          className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
+        >
+          {icalLoading ? 'Wird erneuert…' : 'Link zurücksetzen'}
+        </button>
+      </Card>
     </PageShell>
   )
 }

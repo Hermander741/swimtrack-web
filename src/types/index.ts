@@ -179,3 +179,106 @@ export interface PinnedMessage {
   pinned_by: string | null
   pinned_at: string
 }
+
+// --- Mermaids Training types ---
+
+export type BlockCategory = 'aufwaermen' | 'hauptset' | 'abkuehlen' | 'kraft' | 'technik' | 'sonstiges'
+
+export interface TrainingGroup {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  channel_id: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface TrainingGroupMember {
+  user_id: string
+  name: string
+  email: string
+  role: Role
+  avatar_color: string
+  added_at: string
+}
+
+export interface TrainingBlock {
+  id: string
+  name: string
+  category: BlockCategory
+  distance_m: number | null
+  stroke: string | null
+  reps: number | null
+  rest_s: number | null
+  description: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface TrainingTemplateBlock {
+  template_id: string
+  block_id: string
+  position: number
+  override_note: string | null
+  name: string
+  category: BlockCategory
+  distance_m: number | null
+  stroke: string | null
+  reps: number | null
+  rest_s: number | null
+  description: string | null
+}
+
+export interface TrainingTemplate {
+  id: string
+  group_id: string
+  day_of_week: number
+  start_time: string
+  duration_min: number
+  location: string | null
+  title: string
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  blocks: TrainingTemplateBlock[]
+}
+
+export interface TrainingSessionBlock {
+  session_id: string
+  block_id: string | null
+  position: number
+  name: string
+  category: BlockCategory
+  distance_m: number | null
+  stroke: string | null
+  reps: number | null
+  rest_s: number | null
+  description: string | null
+  override_note: string | null
+}
+
+export interface TrainingSession {
+  id: string
+  group_id: string | null
+  template_id: string | null
+  title: string
+  date: string
+  start_time: string
+  duration_min: number
+  location: string | null
+  notes: string | null
+  is_cancelled: boolean
+  is_external: boolean
+  created_by: string | null
+  created_at: string
+  group_name?: string | null
+  group_color?: string | null
+  blocks?: TrainingSessionBlock[]
+}
+
+export interface ICalToken {
+  id: string
+  token: string
+  created_at: string
+}
