@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, startOfWeek, addDays } from 'date-fns'
 import type { TrainingGroup, TrainingSession, TrainingBlock, TrainingTemplate } from '../types'
 import { listGroups, listSessions, listBlocks, listTemplates } from '../api/training'
@@ -14,7 +14,7 @@ export function useTraining() {
   const [templates, setTemplates] = useState<TrainingTemplate[]>([])
   const [loading, setLoading] = useState(true)
 
-  const weekEnd = addDays(weekStart, 6)
+  const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart])
 
   const fetchSessions = useCallback(async (from: Date, to: Date) => {
     setLoading(true)

@@ -87,15 +87,35 @@ templatesRouter.patch('/:id', requireAuth(['admin', 'trainer']), async (req, res
       template = rows[0]
     }
     if (block_ids !== undefined) {
-      await pool.query('DELETE FROM training_template_blocks WHERE template_id = $1', [req.params.id])
-      for (let i = 0; i < block_ids.length; i++) {
-        await pool.query(
-          `INSERT INTO training_template_blocks (template_id, block_id, position, override_note) VALUES ($1, $2, $3, $4)`,
-          [req.params.id, block_ids[i].block_id, i, block_ids[i].override_note ?? null],
-        )
+      const tClient = await pool.connect()
+      try {
+        await tClient.query('BEGIN')
+        await tClient.query('DELETE FROM training_template_blocks WHERE template_id = $1', [req.params.id])
+        if (block_ids && block_ids.length > 0) {
+          for (let i = 0; i < block_ids.length; i++) {
+            const { block_id, override_note } = block_ids[i]
+            await tClient.query(
+              'INSERT INTO training_template_blocks (template_id, block_id, position, override_note) VALUES ($1, $2, $3, $4)',
+              [req.params.id, block_id, i, override_note ?? null],
+            )
+          }
+        }
+        await tClient.query('COMMIT')
+      } catch (e) {
+        await tClient.query('ROLLBACK')
+        throw e
+      } finally {
+        tClient.release()
       }
     }
-    res.json(ok(template))
+    const { rows: blockRows } = await pool.query(
+      `SELECT ttb.*, tb.name, tb.category, tb.distance_m, tb.stroke, tb.reps, tb.rest_s, tb.description
+       FROM training_template_blocks ttb
+       JOIN training_blocks tb ON tb.id = ttb.block_id
+       WHERE ttb.template_id = $1 ORDER BY ttb.position`,
+      [req.params.id],
+    )
+    res.json(ok({ ...template, blocks: blockRows }))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
@@ -146,19 +166,30 @@ templatesRouter.post('/:id/generate', requireAuth(['admin', 'trainer']), async (
           [template.id, template.group_id, dateStr],
         )
         if (!existing.length) {
-          const { rows: session } = await pool.query(
-            `INSERT INTO training_sessions (group_id, template_id, title, date, start_time, duration_min, location, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-            [template.group_id, template.id, template.title, dateStr, template.start_time, template.duration_min, template.location, req.user!.id],
-          )
-          for (const b of blocks) {
-            await pool.query(
-              `INSERT INTO training_session_blocks (session_id, block_id, position, name, category, distance_m, stroke, reps, rest_s, description, override_note)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-              [session[0].id, b.block_id, b.position, b.name, b.category, b.distance_m, b.stroke, b.reps, b.rest_s, b.description, b.override_note],
+          const client = await pool.connect()
+          try {
+            await client.query('BEGIN')
+            const { rows: [sess] } = await client.query(
+              `INSERT INTO training_sessions (group_id, template_id, title, date, start_time, duration_min, location, created_by)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+              [template.group_id, template.id, template.title, dateStr, template.start_time, template.duration_min, template.location ?? null, req.user!.id],
             )
+            for (let i = 0; i < blocks.length; i++) {
+              const b = blocks[i]
+              await client.query(
+                `INSERT INTO training_session_blocks (session_id, block_id, position, name, category, distance_m, stroke, reps, rest_s, description, override_note)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [sess.id, b.block_id, i, b.name, b.category, b.distance_m ?? null, b.stroke ?? null, b.reps ?? null, b.rest_s ?? null, b.description ?? null, null],
+              )
+            }
+            await client.query('COMMIT')
+            created++
+          } catch (e) {
+            await client.query('ROLLBACK')
+            throw e
+          } finally {
+            client.release()
           }
-          created++
         }
       }
       cur.setUTCDate(cur.getUTCDate() + 1)

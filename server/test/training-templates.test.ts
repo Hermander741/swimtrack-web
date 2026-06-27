@@ -4,9 +4,9 @@ import request from 'supertest'
 import express from 'express'
 import jwt from 'jsonwebtoken'
 
-vi.mock('../src/db/pool', () => ({ pool: { query: vi.fn() } }))
+vi.mock('../src/db/pool', () => ({ pool: { query: vi.fn(), connect: vi.fn() } }))
 import { pool } from '../src/db/pool'
-const mockPool = pool as { query: ReturnType<typeof vi.fn> }
+const mockPool = pool as { query: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn> }
 
 process.env.JWT_SECRET = 'test-secret-for-vitest'
 import { templatesRouter } from '../src/routes/training/templates'
@@ -104,12 +104,19 @@ describe('POST /api/training/templates/:id/generate', () => {
     // Template is day_of_week=1 (Tuesday). Range 2026-07-06 to 2026-07-14 has Tuesdays on 07 and 14.
     // 07-07 (Tuesday) exists already, 07-14 (Tuesday) does not.
     const templateWithBlocks = { ...fakeTemplate, blocks: [] }
+    const mockClient = {
+      query: vi.fn()
+        .mockResolvedValueOnce(undefined)                        // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'new-session' }] })// INSERT session
+        .mockResolvedValueOnce(undefined),                       // COMMIT
+      release: vi.fn(),
+    }
     mockPool.query
       .mockResolvedValueOnce({ rows: [trainer] })
       .mockResolvedValueOnce({ rows: [templateWithBlocks] })   // template query
       .mockResolvedValueOnce({ rows: [{ 1: 1 }] })             // existing check: 07-07 exists
       .mockResolvedValueOnce({ rows: [] })                     // existing check: 07-14 does not exist
-      .mockResolvedValueOnce({ rows: [{ id: 'new-session' }] })// INSERT session
+    mockPool.connect.mockResolvedValueOnce(mockClient)
     const res = await request(makeApp())
       .post('/api/training/templates/t1/generate')
       .set('Authorization', `Bearer ${trainerToken}`)

@@ -46,13 +46,13 @@ sessionsRouter.get('/ical', async (req, res) => {
     )
 
     const ical = (await import('ical-generator')).default
-    const cal = ical({ name: 'Mermaids Training' })
+    const cal = ical({ name: 'Mermaids Training', timezone: 'Europe/Vienna' })
     type BlockRow = { name: string; category: string; distance_m: number | null; stroke: string | null; reps: number | null; rest_s: number | null; override_note: string | null }
     for (const s of rows) {
-      const [h, m] = (s.start_time as string).split(':').map(Number)
-      const start = new Date(`${s.date}T00:00:00`)
-      start.setHours(h, m, 0, 0)
-      const end = new Date(start.getTime() + s.duration_min * 60000)
+      const [year, month, day] = (s.date as string).split('-').map(Number)
+      const [hour, minute] = (s.start_time as string).split(':').map(Number)
+      const start = new Date(Date.UTC(year, month - 1, day, hour, minute))
+      const end = new Date(start.getTime() + (s.duration_min ?? 90) * 60000)
       const blocks = s.blocks as BlockRow[]
       const descLines = blocks.map(b => {
         let line = `[${b.category}] ${b.name}`
