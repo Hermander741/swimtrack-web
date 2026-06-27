@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import { Plus, Pencil, Trash2, X, Check, Play, ChevronUp, ChevronDown } from 'lucide-react'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -25,6 +26,7 @@ interface SelectedBlock { block_id: string; override_note: string }
 const emptyForm = { group_id: '', day_of_week: 1, start_time: '18:00', duration_min: '90', location: '', title: '' }
 
 export function TemplateEditor({ groups, blocks, templates, onChanged, onSessionsGenerated }: TemplateEditorProps) {
+  const { user } = useAuth()
   const [editId, setEditId] = useState<string | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [selectedBlocks, setSelectedBlocks] = useState<SelectedBlock[]>([])
@@ -202,7 +204,9 @@ export function TemplateEditor({ groups, blocks, templates, onChanged, onSession
                   <Play size={14} />
                 </button>
                 <button onClick={() => openEdit(t)} className="text-slate-500 hover:text-white p-1 transition-colors"><Pencil size={14} /></button>
-                <button onClick={() => handleDelete(t.id)} className="text-slate-500 hover:text-red-400 p-1 transition-colors"><Trash2 size={14} /></button>
+                {user?.role === 'admin' && (
+                  <button onClick={() => handleDelete(t.id)} className="text-slate-500 hover:text-red-400 p-1 transition-colors"><Trash2 size={14} /></button>
+                )}
               </div>
             </div>
             {isGenerating && (
