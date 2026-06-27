@@ -60,6 +60,9 @@ templatesRouter.patch('/:id', requireAuth(['admin', 'trainer']), async (req, res
     day_of_week?: number; start_time?: string; duration_min?: number; location?: string | null
     title?: string; is_active?: boolean; block_ids?: Array<{ block_id: string; override_note?: string }>
   }
+  if (day_of_week !== undefined && (day_of_week < 0 || day_of_week > 6)) {
+    res.status(400).json(err('day_of_week muss 0-6 sein')); return
+  }
   const sets: string[] = []
   const values: unknown[] = []
   let p = 1
@@ -126,15 +129,18 @@ templatesRouter.post('/:id/generate', requireAuth(['admin', 'trainer']), async (
     type BlockRow = { block_id: string; position: number; override_note: string | null; name: string; category: string; distance_m: number | null; stroke: string | null; reps: number | null; rest_s: number | null; description: string | null }
     const blocks = template.blocks as BlockRow[]
 
-    const fromDate = new Date(from + 'T00:00:00')
-    const toDate = new Date(to + 'T00:00:00')
+    // Parse as UTC dates — avoid local timezone offset issues
+    const fromParts = from.split('-').map(Number) // [YYYY, MM, DD]
+    const toParts = to.split('-').map(Number)
+    const fromDate = new Date(Date.UTC(fromParts[0], fromParts[1] - 1, fromParts[2]))
+    const toDate = new Date(Date.UTC(toParts[0], toParts[1] - 1, toParts[2]))
     let created = 0
     const cur = new Date(fromDate)
 
     while (cur <= toDate) {
-      // (getDay() + 6) % 7 converts JS day (0=Sun) to DB day (0=Mon)
-      if ((cur.getDay() + 6) % 7 === template.day_of_week) {
-        const dateStr = cur.toISOString().slice(0, 10)
+      // getUTCDay() returns 0=Sunday in UTC, convert to 0=Monday
+      if ((cur.getUTCDay() + 6) % 7 === template.day_of_week) {
+        const dateStr = cur.toISOString().slice(0, 10) // now always correct UTC date
         const { rows: existing } = await pool.query(
           `SELECT 1 FROM training_sessions WHERE template_id = $1 AND group_id = $2 AND date = $3`,
           [template.id, template.group_id, dateStr],
@@ -155,7 +161,7 @@ templatesRouter.post('/:id/generate', requireAuth(['admin', 'trainer']), async (
           created++
         }
       }
-      cur.setDate(cur.getDate() + 1)
+      cur.setUTCDate(cur.getUTCDate() + 1)
     }
     res.json(ok({ created }))
   } catch { res.status(500).json(err('Interner Fehler')) }
