@@ -9,6 +9,7 @@ import { blocksRouter } from './blocks'
 import { templatesRouter } from './templates'
 import { sessionsRouter } from './sessions'
 import { attendanceRouter } from './attendance'
+import { entriesRouter } from './entries'
 
 export const trainingRouter = Router()
 
@@ -17,6 +18,7 @@ trainingRouter.use('/blocks', blocksRouter)
 trainingRouter.use('/templates', templatesRouter)
 trainingRouter.use('/sessions', sessionsRouter)
 trainingRouter.use('/sessions/:id/attendance', attendanceRouter)
+trainingRouter.use('/sessions/:id/entry', entriesRouter)
 
 trainingRouter.get('/ical-token', requireAuth(), async (req, res) => {
   const userId = req.user!.id
