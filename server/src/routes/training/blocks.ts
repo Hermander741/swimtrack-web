@@ -54,11 +54,15 @@ blocksRouter.patch('/:id', requireAuth(['admin', 'trainer']), async (req, res) =
     if ('reps' in req.body) { sets.push(`reps = $${p++}`); values.push(reps ?? null) }
     if ('rest_s' in req.body) { sets.push(`rest_s = $${p++}`); values.push(rest_s ?? null) }
     if ('description' in req.body) { sets.push(`description = $${p++}`); values.push(description ?? null) }
+    if (category !== undefined && !VALID_CATEGORIES.includes(category as never)) {
+      res.status(400).json(err('Ungültige Kategorie')); return
+    }
     if (!sets.length) { res.status(400).json(err('Keine Felder')); return }
     values.push(req.params.id)
     const { rows } = await pool.query(
       `UPDATE training_blocks SET ${sets.join(', ')} WHERE id = $${p} RETURNING *`, values,
     )
+    if (!rows[0]) { res.status(404).json(err('Nicht gefunden')); return }
     res.json(ok(rows[0]))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
@@ -71,7 +75,8 @@ blocksRouter.delete('/:id', requireAuth(['admin', 'trainer']), async (req, res) 
       if (!check[0]) { res.status(404).json(err('Nicht gefunden')); return }
       if (check[0].created_by !== user.id) { res.status(403).json(err('Keine Berechtigung')); return }
     }
-    await pool.query('DELETE FROM training_blocks WHERE id = $1', [req.params.id])
+    const result = await pool.query('DELETE FROM training_blocks WHERE id = $1', [req.params.id])
+    if (result.rowCount === 0) { res.status(404).json(err('Nicht gefunden')); return }
     res.json(ok(null))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })

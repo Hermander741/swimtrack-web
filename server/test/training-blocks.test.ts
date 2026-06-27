@@ -74,6 +74,46 @@ describe('POST /api/training/blocks', () => {
   })
 })
 
+describe('PATCH /api/training/blocks/:id', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 403 when trainer tries to patch another trainer block', async () => {
+    const otherTrainer = { ...trainer, id: 'u9' }
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [otherTrainer] })
+      .mockResolvedValueOnce({ rows: [{ created_by: 'u2' }] }) // owned by u2
+    const otherToken = jwt.sign({ sub: 'u9', email: 'x@x.at', role: 'trainer' }, 'test-secret-for-vitest', { expiresIn: '15m' })
+    const res = await request(makeApp()).patch('/api/training/blocks/b1').set('Authorization', `Bearer ${otherToken}`).send({ name: 'X' })
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 400 for invalid category', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [trainer] })
+      .mockResolvedValueOnce({ rows: [{ created_by: 'u2' }] })
+    const res = await request(makeApp()).patch('/api/training/blocks/b1').set('Authorization', `Bearer ${trainerToken}`).send({ category: 'invalid' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when no fields provided', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [trainer] })
+      .mockResolvedValueOnce({ rows: [{ created_by: 'u2' }] })
+    const res = await request(makeApp()).patch('/api/training/blocks/b1').set('Authorization', `Bearer ${trainerToken}`).send({})
+    expect(res.status).toBe(400)
+  })
+
+  it('patches own block', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [trainer] })
+      .mockResolvedValueOnce({ rows: [{ created_by: 'u2' }] })
+      .mockResolvedValueOnce({ rows: [{ ...fakeBlock, name: 'Updated' }] })
+    const res = await request(makeApp()).patch('/api/training/blocks/b1').set('Authorization', `Bearer ${trainerToken}`).send({ name: 'Updated' })
+    expect(res.status).toBe(200)
+    expect(res.body.data.name).toBe('Updated')
+  })
+})
+
 describe('DELETE /api/training/blocks/:id', () => {
   beforeEach(() => vi.clearAllMocks())
 
