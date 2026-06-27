@@ -6,6 +6,7 @@ import { PageShell } from '../components/layout/PageShell'
 import { ListView } from '../components/training/ListView'
 import { WeekView } from '../components/training/WeekView'
 import { SessionDetail } from '../components/training/SessionDetail'
+import { TrainerPanel } from '../components/training/TrainerPanel'
 import type { TrainingSession } from '../types'
 
 export function Training() {
@@ -67,15 +68,12 @@ export function Training() {
         <SessionDetail session={selectedSession} onClose={() => setSelectedSession(null)} />
       )}
 
-      {/* TODO(Task 12): Replace with <TrainerPanel> once implemented */}
       {isTrainer && showTrainerPanel && (
-        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setShowTrainerPanel(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full glass rounded-t-3xl p-6 pb-8 safe-bottom" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-6" />
-            <p className="text-white text-center text-sm">Trainer-Panel wird geladen…</p>
-          </div>
-        </div>
+        <TrainerPanel
+          training={training}
+          onClose={() => setShowTrainerPanel(false)}
+          onSessionClick={setSelectedSession}
+        />
       )}
     </PageShell>
   )
