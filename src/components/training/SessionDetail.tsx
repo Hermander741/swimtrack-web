@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
+import { X } from 'lucide-react'
 import type { TrainingSession } from '../../types'
 import { BlockItem } from './BlockItem'
 
@@ -20,7 +21,10 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
         className="relative w-full glass rounded-t-3xl pb-8 safe-bottom animate-in slide-in-from-bottom max-h-[85dvh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mt-4 mb-4 flex-shrink-0" />
+        <div className="flex items-center justify-between px-6 pt-4 pb-2 flex-shrink-0">
+          <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+          <button onClick={onClose} className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white"><X size={20} /></button>
+        </div>
         <div className="overflow-y-auto scrollbar-none px-6 pb-4">
           {session.is_cancelled && (
             <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl px-4 py-2 text-red-400 text-sm text-center">
