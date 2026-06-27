@@ -3,6 +3,7 @@ import { X, Plus } from 'lucide-react'
 import type { useTraining } from '../../hooks/useTraining'
 import { GroupEditor } from './GroupEditor'
 import { BlockLibrary } from './BlockLibrary'
+import { TemplateEditor } from './TemplateEditor'
 import { SessionCard } from './SessionCard'
 import { listGroups } from '../../api/training'
 import type { TrainingGroup, TrainingSession } from '../../types'
@@ -123,7 +124,13 @@ export function TrainerPanel({ training, onClose, onSessionClick }: TrainerPanel
           )}
 
           {tab === 'Templates' && (
-            <p className="text-sm text-slate-400 text-center py-6">Templates folgen in Task 14</p>
+            <TemplateEditor
+              groups={training.groups}
+              blocks={training.blocks}
+              templates={training.templates}
+              onChanged={training.setTemplates}
+              onSessionsGenerated={training.refreshAll}
+            />
           )}
         </div>
       </div>
