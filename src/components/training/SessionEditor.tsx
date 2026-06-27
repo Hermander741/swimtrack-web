@@ -18,6 +18,7 @@ interface SelectedBlock {
   block_id: string
   name: string
   category: BlockCategory
+  override_note?: string
 }
 
 interface SessionEditorProps {
@@ -41,7 +42,7 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
   const [error, setError] = useState('')
 
   function addBlock(b: TrainingBlock) {
-    setSelectedBlocks(prev => [...prev, { block_id: b.id, name: b.name, category: b.category }])
+    setSelectedBlocks(prev => [...prev, { block_id: b.id, name: b.name, category: b.category, override_note: undefined }])
   }
 
   function removeBlock(i: number) {
@@ -54,6 +55,14 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
       const swap = index + dir
       if (swap < 0 || swap >= next.length) return prev
       ;[next[index], next[swap]] = [next[swap], next[index]]
+      return next
+    })
+  }
+
+  function updateBlockNote(index: number, note: string) {
+    setSelectedBlocks(prev => {
+      const next = [...prev]
+      next[index] = { ...next[index], override_note: note }
       return next
     })
   }
@@ -83,6 +92,7 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
           reps: b?.reps ?? undefined,
           rest_s: b?.rest_s ?? undefined,
           description: b?.description ?? undefined,
+          override_note: sb.override_note || undefined,
         }
       }),
     })
@@ -155,22 +165,31 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
         {selectedBlocks.length > 0 && (
           <div className="glass rounded-xl mb-3 divide-y divide-white/5">
             {selectedBlocks.map((sb, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2">
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => moveBlock(i, -1)} className="text-slate-500 hover:text-white p-0.5">
-                    <ChevronUp size={12} />
-                  </button>
-                  <button onClick={() => moveBlock(i, 1)} className="text-slate-500 hover:text-white p-0.5">
-                    <ChevronDown size={12} />
+              <div key={sb.block_id} className="flex flex-col gap-2 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={() => moveBlock(i, -1)} className="text-slate-500 hover:text-white p-0.5">
+                      <ChevronUp size={12} />
+                    </button>
+                    <button onClick={() => moveBlock(i, 1)} className="text-slate-500 hover:text-white p-0.5">
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${CAT_COLORS[sb.category]}`}>
+                    {sb.category.slice(0, 3)}
+                  </span>
+                  <span className="flex-1 text-sm text-white truncate">{sb.name}</span>
+                  <button onClick={() => removeBlock(i)} className="text-slate-500 hover:text-red-400 p-1">
+                    <X size={14} />
                   </button>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${CAT_COLORS[sb.category]}`}>
-                  {sb.category.slice(0, 3)}
-                </span>
-                <span className="flex-1 text-sm text-white truncate">{sb.name}</span>
-                <button onClick={() => removeBlock(i)} className="text-slate-500 hover:text-red-400 p-1">
-                  <X size={14} />
-                </button>
+                <input
+                  type="text"
+                  placeholder="Notiz für diesen Baustein (optional)"
+                  value={sb.override_note || ''}
+                  onChange={e => updateBlockNote(i, e.target.value)}
+                  className="text-xs px-2 py-1 rounded bg-slate-800/50 text-slate-100 placeholder-slate-500 border border-slate-700/50 focus:outline-none focus:border-slate-500"
+                />
               </div>
             ))}
           </div>
