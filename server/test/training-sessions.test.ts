@@ -4,9 +4,14 @@ import request from 'supertest'
 import express from 'express'
 import jwt from 'jsonwebtoken'
 
-vi.mock('../src/db/pool', () => ({ pool: { query: vi.fn() } }))
+vi.mock('../src/db/pool', () => ({
+  pool: {
+    query: vi.fn(),
+    connect: vi.fn(),
+  },
+}))
 import { pool } from '../src/db/pool'
-const mockPool = pool as { query: ReturnType<typeof vi.fn> }
+const mockPool = pool as { query: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn> }
 
 process.env.JWT_SECRET = 'test-secret-for-vitest'
 import { sessionsRouter } from '../src/routes/training/sessions'
@@ -86,9 +91,15 @@ describe('POST /api/training/sessions', () => {
   })
 
   it('creates session', async () => {
-    mockPool.query
-      .mockResolvedValueOnce({ rows: [trainer] })
-      .mockResolvedValueOnce({ rows: [fakeSession] })
+    const mockClient = {
+      query: vi.fn()
+        .mockResolvedValueOnce(undefined)                      // BEGIN
+        .mockResolvedValueOnce({ rows: [fakeSession] })       // INSERT session
+        .mockResolvedValueOnce(undefined),                     // COMMIT
+      release: vi.fn(),
+    }
+    mockPool.query.mockResolvedValueOnce({ rows: [trainer] }) // auth
+    mockPool.connect.mockResolvedValueOnce(mockClient)
     const res = await request(makeApp())
       .post('/api/training/sessions')
       .set('Authorization', `Bearer ${trainerToken}`)

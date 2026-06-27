@@ -122,21 +122,31 @@ sessionsRouter.post('/', requireAuth(['admin', 'trainer']), async (req, res) => 
   if (!start_time) { res.status(400).json(err('Startzeit erforderlich')); return }
   if (!is_external && !group_id) { res.status(400).json(err('group_id oder is_external erforderlich')); return }
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO training_sessions (group_id, title, date, start_time, duration_min, location, notes, is_external, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [group_id ?? null, title.trim(), date, start_time, duration_min, location ?? null, notes ?? null, is_external, req.user!.id],
-    )
-    const session = rows[0]
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i]
-      await pool.query(
-        `INSERT INTO training_session_blocks (session_id, block_id, position, name, category, distance_m, stroke, reps, rest_s, description, override_note)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [session.id, b.block_id ?? null, i, b.name, b.category, b.distance_m ?? null, b.stroke ?? null, b.reps ?? null, b.rest_s ?? null, b.description ?? null, b.override_note ?? null],
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const { rows } = await client.query(
+        `INSERT INTO training_sessions (group_id, title, date, start_time, duration_min, location, notes, is_external, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [group_id ?? null, title.trim(), date, start_time, duration_min, location ?? null, notes ?? null, is_external, req.user!.id],
       )
+      const session = rows[0]
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i]
+        await client.query(
+          `INSERT INTO training_session_blocks (session_id, block_id, position, name, category, distance_m, stroke, reps, rest_s, description, override_note)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [session.id, b.block_id ?? null, i, b.name, b.category, b.distance_m ?? null, b.stroke ?? null, b.reps ?? null, b.rest_s ?? null, b.description ?? null, b.override_note ?? null],
+        )
+      }
+      await client.query('COMMIT')
+      res.status(201).json(ok(session))
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
     }
-    res.status(201).json(ok(session))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
