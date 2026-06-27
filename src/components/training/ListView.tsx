@@ -5,10 +5,10 @@ import { SessionCard } from './SessionCard'
 
 interface ListViewProps {
   sessions: TrainingSession[]
-  onSessionClick: (session: TrainingSession) => void
+  onSelect: (session: TrainingSession) => void
 }
 
-export function ListView({ sessions, onSessionClick }: ListViewProps) {
+export function ListView({ sessions, onSelect }: ListViewProps) {
   const now = new Date()
   const todayStart = startOfDay(now)
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
@@ -30,7 +30,7 @@ export function ListView({ sessions, onSessionClick }: ListViewProps) {
               <p className="text-xs text-slate-500 mb-1.5 ml-1">
                 {format(parseISO(s.date), 'EEEE, d. MMMM', { locale: de })}
               </p>
-              <SessionCard session={s} onClick={() => onSessionClick(s)} />
+              <SessionCard session={s} onClick={() => onSelect(s)} />
             </div>
           ))}
         </div>

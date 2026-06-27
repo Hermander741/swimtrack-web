@@ -5,29 +5,30 @@ import type { TrainingSession } from '../../types'
 
 interface WeekViewProps {
   weekStart: Date
+  weekEnd: Date
   sessions: TrainingSession[]
-  onSessionClick: (session: TrainingSession) => void
-  onPrevWeek: () => void
-  onNextWeek: () => void
+  onSelect: (session: TrainingSession) => void
+  onPrev: () => void
+  onNext: () => void
   onToday: () => void
 }
 
 const DOW = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-export function WeekView({ weekStart, sessions, onSessionClick, onPrevWeek, onNextWeek, onToday }: WeekViewProps) {
+export function WeekView({ weekStart, sessions, onSelect, onPrev, onNext, onToday }: WeekViewProps) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const today = new Date()
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <button onClick={onPrevWeek} className="p-2 text-slate-400 hover:text-white transition-colors">
+        <button onClick={onPrev} className="p-2 text-slate-400 hover:text-white transition-colors">
           <ChevronLeft size={20} />
         </button>
         <button onClick={onToday} className="text-sm text-teal-400 font-medium">
           {format(weekStart, 'MMMM yyyy', { locale: de })}
         </button>
-        <button onClick={onNextWeek} className="p-2 text-slate-400 hover:text-white transition-colors">
+        <button onClick={onNext} className="p-2 text-slate-400 hover:text-white transition-colors">
           <ChevronRight size={20} />
         </button>
       </div>
@@ -51,7 +52,7 @@ export function WeekView({ weekStart, sessions, onSessionClick, onPrevWeek, onNe
                     return (
                       <button
                         key={s.id}
-                        onClick={() => onSessionClick(s)}
+                        onClick={() => onSelect(s)}
                         className={`text-left text-xs px-1.5 py-1 rounded-md font-medium transition-opacity w-full ${s.is_cancelled ? 'opacity-40 line-through' : ''}`}
                         style={{ backgroundColor: color + '33', color }}
                       >
