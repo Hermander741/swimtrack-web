@@ -15,6 +15,7 @@ Sub-Projekt 3a lieferte den Trainingsplan-Kern (Gruppen, Bausteine, Templates, S
 ## Was dieses Sub-Projekt NICHT enthält
 
 - Push-Einstellungen pro Nutzer (Vorlaufzeit wählbar) → evtl. 3c
+- Push für externe Sessions → kein Push (zu viel Spam, externe Termine im Kalender sichtbar)
 - Statistiken / Auswertungen über Anwesenheit → evtl. 3c
 - Wettkampftermine → Sub-Projekt 5
 - Zeiten & myresults-Integration → Sub-Projekt 4
@@ -47,12 +48,17 @@ CREATE TABLE IF NOT EXISTS session_entries (
   user_id      UUID REFERENCES users(id) ON DELETE CASCADE,
   note         TEXT,
   distance_m   INTEGER,
-  duration_min INTEGER,
   rating       SMALLINT CHECK (rating BETWEEN 1 AND 3),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (session_id, user_id)
 );
+
+-- Performance: Cron-Query filtert auf (date, start_time) — compound index
+-- idx_training_sessions_date (nur date) existiert bereits aus 004_training.sql
+CREATE INDEX IF NOT EXISTS idx_training_sessions_date_time
+  ON training_sessions(date, start_time)
+  WHERE is_cancelled = false;
 
 -- De-Duplikations-Schutz: verhindert doppelte Push-Benachrichtigungen
 CREATE TABLE IF NOT EXISTS training_push_sent (
@@ -71,7 +77,7 @@ CREATE TABLE IF NOT EXISTS training_push_sent (
 | Anwesenheit setzen | Nein | Ja | Ja |
 | Eigenen Eintrag lesen/schreiben | Ja | Ja | Ja |
 | Fremde Einträge lesen | Nein | Nein | Nein |
-| Push-Erinnerungen empfangen | Ja (eigene Gruppen) | Ja (alle) | Ja (alle) |
+| Push-Erinnerungen empfangen | Ja (eigene Gruppen) | Ja (alle Gruppen) | Ja (alle Gruppen) |
 
 ## API-Endpunkte
 
@@ -100,9 +106,9 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 | PUT | `/api/training/sessions/:id/entry` | JWT | Eigenen Eintrag erstellen oder aktualisieren (Upsert) |
 | DELETE | `/api/training/sessions/:id/entry` | JWT | Eigenen Eintrag löschen |
 
-`PUT` Body: `{ note?: string, distance_m?: number, duration_min?: number, rating?: 1 | 2 | 3 }` — alle Felder optional. Leerer PUT (alle null/undefined) ist gültig.
+`PUT` Body: `{ note?: string, distance_m?: number, rating?: 1 | 2 | 3 }` — alle Felder optional. Leerer PUT (alle null/undefined) ist gültig.
 
-`PUT` Response: vollständiger Eintrag mit `id, session_id, user_id, note, distance_m, duration_min, rating, created_at, updated_at`.
+`PUT` Response: vollständiger Eintrag mit `id, session_id, user_id, note, distance_m, rating, created_at, updated_at`.
 
 ## Push-Benachrichtigungen
 
@@ -115,14 +121,13 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 ### Logik pro Cron-Tick
 
 ```
-1. Query: alle nicht-abgesagten Sessions die in 55–65 Minuten starten
-   (Timezone: Europe/Vienna)
+1. Query: alle nicht-abgesagten, nicht-externen Sessions die in 55–65 Minuten starten
+   (Timezone: Europe/Vienna) — is_external = true wird übersprungen, kein Push
 2. Für jede solche Session:
-   a. Bestimme Ziel-Nutzer:
-      - Reguläre Session (group_id): Mitglieder der Gruppe (training_group_members)
-        + alle Trainer/Admins
-      - Externe Session (is_external = true): ALLE Nutzer
-   b. Filter: Nutzer mit push_subscriptions die noch kein Eintrag in
+   a. Bestimme Ziel-Nutzer (nur reguläre Sessions mit group_id):
+      - Mitglieder der Gruppe (training_group_members)
+      - Alle Trainer/Admins (role IN ('trainer', 'admin'))
+   b. Filter: Nutzer mit push_subscriptions die noch keinen Eintrag in
       training_push_sent haben (session_id + user_id Kombination)
    c. Sende Push (web-push, Promise.allSettled wie in pushNotify.ts)
    d. INSERT INTO training_push_sent (session_id, user_id) ... ON CONFLICT DO NOTHING
@@ -145,16 +150,15 @@ Der bestehende Service Worker (`public/sw.js`) leitet Tap-Events bereits auf `/t
 ### Timezone-Berechnung (PostgreSQL)
 
 ```sql
-SELECT ts.id, ts.title, ts.group_id, ts.is_external
+SELECT ts.id, ts.title, ts.group_id
 FROM training_sessions ts
 WHERE ts.is_cancelled = false
+  AND ts.is_external = false
+  AND ts.group_id IS NOT NULL
   AND (ts.date + ts.start_time) AT TIME ZONE 'Europe/Vienna'
       BETWEEN (now() AT TIME ZONE 'Europe/Vienna' + INTERVAL '55 minutes')
           AND (now() AT TIME ZONE 'Europe/Vienna' + INTERVAL '65 minutes')
-  AND ts.id NOT IN (
-    SELECT DISTINCT session_id FROM training_push_sent
-    WHERE user_id = ANY($1::uuid[])
-  )
+-- Partial index idx_training_sessions_date_time (is_cancelled = false) wird genutzt
 ```
 
 ## Frontend-Änderungen
@@ -189,7 +193,7 @@ Nur `SessionDetail.tsx` wird erweitert — keine neuen Seiten oder Routen.
 ```
 
 - Sichtbar für alle eingeloggten Nutzer
-- Kein Zeitlimit (nicht nur für vergangene Sessions)
+- Zeitfenster: Sessions der letzten 90 Tage + alle zukünftigen (Backend und Frontend prüfen)
 - Lädt beim Öffnen: `GET /entry` → vorhandener Eintrag oder `null`
 - "Speichern" ruft `PUT /entry` auf (Upsert)
 - Löschen-Icon wenn Eintrag vorhanden
