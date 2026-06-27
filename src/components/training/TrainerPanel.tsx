@@ -5,6 +5,7 @@ import { GroupEditor } from './GroupEditor'
 import { BlockLibrary } from './BlockLibrary'
 import { TemplateEditor } from './TemplateEditor'
 import { SessionCard } from './SessionCard'
+import { SessionEditor } from './SessionEditor'
 import { listGroups } from '../../api/training'
 import type { TrainingGroup, TrainingSession } from '../../types'
 
@@ -22,6 +23,7 @@ interface TrainerPanelProps {
 export function TrainerPanel({ training, onClose, onSessionClick }: TrainerPanelProps) {
   const [tab, setTab] = useState<Tab>('Übersicht')
   const [editGroup, setEditGroup] = useState<TrainingGroup | null | 'new'>(null)
+  const [showSessionEditor, setShowSessionEditor] = useState(false)
 
   useEffect(() => {
     training.loadTrainerData()
@@ -68,13 +70,30 @@ export function TrainerPanel({ training, onClose, onSessionClick }: TrainerPanel
         <div className="overflow-y-auto scrollbar-none px-6 pb-6 flex-1">
           {tab === 'Übersicht' && (
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aktuelle Woche</p>
-              {training.sessions.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">Keine Sessions diese Woche</p>
+              {showSessionEditor ? (
+                <SessionEditor
+                  groups={training.groups}
+                  blocks={training.blocks}
+                  onSaved={training.refreshAll}
+                  onClose={() => setShowSessionEditor(false)}
+                />
               ) : (
-                training.sessions.map(s => (
-                  <SessionCard key={s.id} session={s} onClick={() => { onClose(); onSessionClick(s) }} />
-                ))
+                <>
+                  <button
+                    onClick={() => { training.loadTrainerData(); setShowSessionEditor(true) }}
+                    className="w-full glass rounded-xl p-3 flex items-center gap-2 text-teal-400 hover:text-teal-300 transition-colors text-sm font-medium"
+                  >
+                    <Plus size={16} /> Neue Session erstellen
+                  </button>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Aktuelle Woche</p>
+                  {training.sessions.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-6">Keine Sessions diese Woche</p>
+                  ) : (
+                    training.sessions.map(s => (
+                      <SessionCard key={s.id} session={s} onClick={() => { onClose(); onSessionClick(s) }} />
+                    ))
+                  )}
+                </>
               )}
             </div>
           )}
