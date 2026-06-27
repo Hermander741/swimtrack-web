@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import { UserPlus, UserMinus, Trash2 } from 'lucide-react'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -19,6 +20,7 @@ interface GroupEditorProps {
 }
 
 export function GroupEditor({ group, onSaved, onDeleted }: GroupEditorProps) {
+  const { user } = useAuth()
   const [name, setName] = useState(group?.name ?? '')
   const [description, setDescription] = useState(group?.description ?? '')
   const [color, setColor] = useState(group?.color ?? '#0EA5E9')
@@ -123,9 +125,11 @@ export function GroupEditor({ group, onSaved, onDeleted }: GroupEditorProps) {
               </div>
             )}
           </div>
-          <Button variant="danger" onClick={handleDelete} className="w-full">
-            <Trash2 size={16} className="mr-2" /> Gruppe löschen
-          </Button>
+          {user?.role === 'admin' && (
+            <Button variant="danger" onClick={handleDelete} className="w-full">
+              <Trash2 size={16} className="mr-2" /> Gruppe löschen
+            </Button>
+          )}
         </>
       )}
     </div>
