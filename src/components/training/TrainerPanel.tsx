@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Plus } from 'lucide-react'
 import type { useTraining } from '../../hooks/useTraining'
 import { GroupEditor } from './GroupEditor'
+import { BlockLibrary } from './BlockLibrary'
 import { SessionCard } from './SessionCard'
 import { listGroups } from '../../api/training'
 import type { TrainingGroup, TrainingSession } from '../../types'
@@ -115,7 +116,10 @@ export function TrainerPanel({ training, onClose, onSessionClick }: TrainerPanel
           )}
 
           {tab === 'Bausteine' && (
-            <p className="text-sm text-slate-400 text-center py-6">Bausteine folgen in Task 13</p>
+            <BlockLibrary
+              blocks={training.blocks}
+              onChanged={training.setBlocks}
+            />
           )}
 
           {tab === 'Templates' && (
