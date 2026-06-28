@@ -84,7 +84,7 @@ export function Profil() {
 
   async function handleSaveMyresults() {
     setMyresultsSaving(true)
-    const res = await updateMe({ myresults_name: myresultsName || undefined })
+    const res = await updateMe({ myresults_name: myresultsName || null })
     if (res.ok) { setUser(res.data); setMyresultsSaved(true); setTimeout(() => setMyresultsSaved(false), 2000) }
     setMyresultsSaving(false)
   }
