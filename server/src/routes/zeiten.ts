@@ -5,6 +5,13 @@ import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import { SWIM_EVENTS } from '../constants/swimEvents'
 
+interface SwimTimeEntry {
+  id: string; user_id: string; user_name: string
+  event: string; course: string; time_ms: number
+  date: string; competition: string | null; created_by: string | null
+  created_at: string; is_pb: boolean
+}
+
 export const zeitenRouter = Router()
 
 // GET /api/zeiten/events — kanonische Disziplin-Liste
@@ -60,5 +67,120 @@ zeitenRouter.get('/', requireAuth(), async (req, res) => {
     const total = rows[0]?.total_count ? parseInt(rows[0].total_count as string) : 0
     const items = rows.map(({ total_count: _, ...r }) => r)
     res.json(ok({ items, total }))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
+// Hilfsfunktion: Lädt eine Zeit mit berechneter is_pb
+async function fetchZeit(id: string) {
+  const { rows } = await pool.query<SwimTimeEntry>(`
+    SELECT st.id, st.user_id, u.name AS user_name,
+      st.event, st.course, st.time_ms, st.date::text AS date,
+      st.competition, st.created_by, st.created_at,
+      (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
+    FROM swim_times st
+    JOIN users u ON u.id = st.user_id
+    WHERE st.id = $1
+  `, [id])
+  return rows[0] ?? null
+}
+
+// POST /api/zeiten — Zeit eintragen
+zeitenRouter.post('/', requireAuth(), async (req, res) => {
+  const { event, course, time_ms, date, competition } = req.body as {
+    event?: string; course?: string; time_ms?: number; date?: string; competition?: string
+    user_id?: string
+  }
+  const user_id = req.body.user_id ?? req.user!.id
+
+  if (user_id !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'trainer') {
+    res.status(403).json(err('Forbidden')); return
+  }
+  if (!event || !(SWIM_EVENTS as readonly string[]).includes(event)) {
+    res.status(400).json(err('Ungültige Disziplin')); return
+  }
+  if (!time_ms || !Number.isInteger(time_ms) || time_ms <= 0) {
+    res.status(400).json(err('Ungültige Zeit (muss positiver Integer in ms sein)')); return
+  }
+  if (!course || !['LB', 'KB', 'OW'].includes(course)) {
+    res.status(400).json(err('Ungültige Bahn (LB | KB | OW)')); return
+  }
+  if (!date) {
+    res.status(400).json(err('Datum erforderlich')); return
+  }
+
+  try {
+    const { rows: [{ id }] } = await pool.query(
+      `INSERT INTO swim_times (user_id, event, course, time_ms, date, competition, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [user_id, event, course, time_ms, date, competition ?? null, req.user!.id],
+    )
+    const entry = await fetchZeit(id)
+    res.json(ok(entry))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
+// PATCH /api/zeiten/:id — Zeit bearbeiten (eigene: alle; fremde: trainer/admin)
+zeitenRouter.patch('/:id', requireAuth(), async (req, res) => {
+  const { id } = req.params
+  const { event, course, time_ms, date } = req.body as {
+    event?: string; course?: string; time_ms?: number; date?: string
+  }
+
+  try {
+    const { rows: [existing] } = await pool.query(
+      'SELECT user_id FROM swim_times WHERE id = $1', [id],
+    )
+    if (!existing) { res.status(404).json(err('Zeit nicht gefunden')); return }
+    if (existing.user_id !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'trainer') {
+      res.status(403).json(err('Forbidden')); return
+    }
+
+    if (event !== undefined && !(SWIM_EVENTS as readonly string[]).includes(event)) {
+      res.status(400).json(err('Ungültige Disziplin')); return
+    }
+    if (time_ms !== undefined && (!Number.isInteger(time_ms) || time_ms <= 0)) {
+      res.status(400).json(err('Ungültige Zeit')); return
+    }
+    if (course !== undefined && !['LB', 'KB', 'OW'].includes(course)) {
+      res.status(400).json(err('Ungültige Bahn')); return
+    }
+
+    const parts: string[] = []
+    const vals: unknown[] = []
+
+    if (event     !== undefined) { parts.push(`event    = $${vals.length + 1}`); vals.push(event) }
+    if (course    !== undefined) { parts.push(`course   = $${vals.length + 1}`); vals.push(course) }
+    if (time_ms   !== undefined) { parts.push(`time_ms  = $${vals.length + 1}`); vals.push(time_ms) }
+    if (date      !== undefined) { parts.push(`date     = $${vals.length + 1}`); vals.push(date) }
+    if ('competition' in req.body) {
+      parts.push(`competition = $${vals.length + 1}`)
+      vals.push((req.body as { competition?: string }).competition ?? null)
+    }
+
+    if (!parts.length) { res.status(400).json(err('Keine Felder zum Aktualisieren')); return }
+
+    vals.push(id)
+    const { rows: [{ id: updatedId }] } = await pool.query(
+      `UPDATE swim_times SET ${parts.join(', ')} WHERE id = $${vals.length} RETURNING id`,
+      vals,
+    )
+    const entry = await fetchZeit(updatedId)
+    res.json(ok(entry))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
+// DELETE /api/zeiten/:id
+zeitenRouter.delete('/:id', requireAuth(), async (req, res) => {
+  const { id } = req.params
+  try {
+    const { rows: [existing] } = await pool.query(
+      'SELECT user_id FROM swim_times WHERE id = $1', [id],
+    )
+    if (!existing) { res.status(404).json(err('Zeit nicht gefunden')); return }
+    if (existing.user_id !== req.user!.id && req.user!.role !== 'admin' && req.user!.role !== 'trainer') {
+      res.status(403).json(err('Forbidden')); return
+    }
+    await pool.query('DELETE FROM swim_times WHERE id = $1', [id])
+    res.json(ok(null))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })

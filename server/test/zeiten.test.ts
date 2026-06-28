@@ -113,3 +113,176 @@ describe('GET /api/zeiten', () => {
     expect(res.body.data.total).toBe(0)
   })
 })
+
+describe('POST /api/zeiten', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 401 without auth', async () => {
+    const res = await request(makeApp()).post('/api/zeiten').send({})
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 400 for invalid event', async () => {
+    mockPool.query.mockResolvedValueOnce({ rows: [member] })
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ event: 'Freistil Unbekannt', course: 'LB', time_ms: 58000, date: '2026-01-01' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/Disziplin/)
+  })
+
+  it('returns 400 for non-integer time_ms', async () => {
+    mockPool.query.mockResolvedValueOnce({ rows: [member] })
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ event: '100m Freistil', course: 'LB', time_ms: 58.5, date: '2026-01-01' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 for zero time_ms', async () => {
+    mockPool.query.mockResolvedValueOnce({ rows: [member] })
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ event: '100m Freistil', course: 'LB', time_ms: 0, date: '2026-01-01' })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 403 when member tries to set foreign user_id', async () => {
+    mockPool.query.mockResolvedValueOnce({ rows: [member] })
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ user_id: 'u99', event: '100m Freistil', course: 'LB', time_ms: 58000, date: '2026-01-01' })
+    expect(res.status).toBe(403)
+  })
+
+  it('inserts time and returns entry with is_pb', async () => {
+    const insertedRow = { ...sampleRow, is_pb: true }
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })                     // requireAuth
+      .mockResolvedValueOnce({ rows: [{ id: 'z1' }] })              // INSERT RETURNING id
+      .mockResolvedValueOnce({ rows: [insertedRow] })                // SELECT with is_pb
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ event: '100m Freistil', course: 'LB', time_ms: 58000, date: '2026-01-01' })
+    expect(res.status).toBe(200)
+    expect(res.body.data.is_pb).toBe(true)
+    expect(res.body.data.event).toBe('100m Freistil')
+  })
+
+  it('admin can insert for another user', async () => {
+    const insertedRow = { ...sampleRow, user_id: 'u2', is_pb: false }
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [admin] })
+      .mockResolvedValueOnce({ rows: [{ id: 'z1' }] })
+      .mockResolvedValueOnce({ rows: [insertedRow] })
+    const res = await request(makeApp())
+      .post('/api/zeiten')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ user_id: 'u2', event: '100m Freistil', course: 'LB', time_ms: 58000, date: '2026-01-01' })
+    expect(res.status).toBe(200)
+    expect(res.body.data.user_id).toBe('u2')
+  })
+})
+
+describe('PATCH /api/zeiten/:id', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 401 without auth', async () => {
+    const res = await request(makeApp()).patch('/api/zeiten/z1').send({})
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 when time not found', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [] })   // ownership check
+    const res = await request(makeApp())
+      .patch('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ time_ms: 57000 })
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 403 when member edits foreign time', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'u99' }] })  // ownership check
+    const res = await request(makeApp())
+      .patch('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ time_ms: 57000 })
+    expect(res.status).toBe(403)
+  })
+
+  it('updates own time and returns updated entry', async () => {
+    const updatedRow = { ...sampleRow, time_ms: 57000 }
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'u2' }] })  // ownership check
+      .mockResolvedValueOnce({ rows: [{ id: 'z1' }] })        // UPDATE RETURNING id
+      .mockResolvedValueOnce({ rows: [updatedRow] })           // SELECT with is_pb
+    const res = await request(makeApp())
+      .patch('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ time_ms: 57000 })
+    expect(res.status).toBe(200)
+    expect(res.body.data.time_ms).toBe(57000)
+  })
+
+  it('returns 400 for invalid event in PATCH', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'u2' }] })
+    const res = await request(makeApp())
+      .patch('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ event: 'Bogus Disziplin' })
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('DELETE /api/zeiten/:id', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns 401 without auth', async () => {
+    const res = await request(makeApp()).delete('/api/zeiten/z1')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 404 when not found', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [] })
+    const res = await request(makeApp())
+      .delete('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 403 when member deletes foreign time', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'u99' }] })
+    const res = await request(makeApp())
+      .delete('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+    expect(res.status).toBe(403)
+  })
+
+  it('deletes own time and returns null', async () => {
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [member] })
+      .mockResolvedValueOnce({ rows: [{ user_id: 'u2' }] })
+      .mockResolvedValueOnce({ rows: [] })
+    const res = await request(makeApp())
+      .delete('/api/zeiten/z1')
+      .set('Authorization', `Bearer ${memberToken}`)
+    expect(res.status).toBe(200)
+    expect(res.body.data).toBeNull()
+  })
+})
