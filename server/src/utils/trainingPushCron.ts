@@ -27,8 +27,8 @@ export function startTrainingPushCron() {
           AND ts.is_external = false
           AND ts.group_id IS NOT NULL
           AND (ts.date + ts.start_time) AT TIME ZONE 'Europe/Vienna'
-              BETWEEN (now() AT TIME ZONE 'Europe/Vienna' + INTERVAL '55 minutes')
-                  AND (now() AT TIME ZONE 'Europe/Vienna' + INTERVAL '65 minutes')
+              BETWEEN now() + INTERVAL '55 minutes'
+                  AND now() + INTERVAL '65 minutes'
       `)
 
       for (const session of sessions) {
@@ -68,12 +68,18 @@ export function startTrainingPushCron() {
         })
 
         await Promise.allSettled(
-          unsent.map(sub =>
-            webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-              payload,
-            ).catch(() => { /* stale subscription — ignore */ }),
-          ),
+          unsent.map(async sub => {
+            try {
+              await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                payload,
+              )
+            } catch (err: any) {
+              if (err?.statusCode === 410) {
+                await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [sub.endpoint])
+              }
+            }
+          }),
         )
 
         // Mark as sent (de-duplication)
