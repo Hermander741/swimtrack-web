@@ -9,6 +9,7 @@ import { Profil } from './pages/Profil'
 import { Placeholder } from './pages/Placeholder'
 import { Chat } from './pages/Chat'
 import { Training } from './pages/Training'
+import { Zeiten } from './pages/Zeiten'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -35,7 +36,7 @@ function AppRoutes() {
       <Route path="/profil" element={<RequireAuth><Profil /></RequireAuth>} />
       <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
       <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
-      <Route path="/zeiten" element={<RequireAuth><Placeholder title="Zeiten" icon="⏱" /></RequireAuth>} />
+      <Route path="/zeiten" element={<RequireAuth><Zeiten /></RequireAuth>} />
       <Route path="/mehr" element={<RequireAuth><Profil /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

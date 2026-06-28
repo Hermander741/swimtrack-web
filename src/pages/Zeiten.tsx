@@ -1,251 +1,237 @@
-import { useContext, useState } from 'react'
-import { Timer, Plus, Star, Trash2, ChevronDown, TrendingDown } from 'lucide-react'
-import { StoreContext } from '../App'
-import { Card } from '../components/Card'
-import { Modal } from '../components/Modal'
-import { SwimmerChip } from '../components/SwimmerChip'
-import type { SwimTime } from '../types'
-import { formatTime, parseTimeInput, formatDate, generateId, SWIM_EVENTS } from '../utils/format'
+import { useState, useEffect } from 'react'
+import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import { PageShell } from '../components/layout/PageShell'
+import { Card } from '../components/ui/Card'
+import { Avatar } from '../components/ui/Avatar'
+import { listBestzeiten, listEvents } from '../api/zeiten'
+import { formatTime } from '../utils/format'
+import type { SwimTimeEntry } from '../types'
 
-export function Zeiten() {
-  const store = useContext(StoreContext)!
-  const swimmer = store.activeSwimmer
-  const [open, setOpen] = useState(false)
-  const [filterEvent, setFilterEvent] = useState('alle')
-  const [filterCourse, setFilterCourse] = useState<'alle' | 'LB' | 'KB'>('alle')
-  const [form, setForm] = useState({
-    event: SWIM_EVENTS[0],
-    course: 'LB' as 'LB' | 'KB',
-    timeInput: '',
-    date: new Date().toISOString().split('T')[0],
-    competition: '',
-  })
-  const [timeError, setTimeError] = useState('')
+type OuterTab = 'bestzeiten' | 'meine' | 'wettkampf' | 'live'
+type BestzetenView = 'ranking' | 'mitglieder'
 
-  const swimmerTimes = store.times.filter(t => t.swimmerId === swimmer?.id)
-  const events = ['alle', ...Array.from(new Set(swimmerTimes.map(t => t.event))).sort()]
+// ─── Bestzeiten-Tab ──────────────────────────────────────────────────────────
 
-  const filtered = swimmerTimes
-    .filter(t => filterEvent === 'alle' || t.event === filterEvent)
-    .filter(t => filterCourse === 'alle' || t.course === filterCourse)
-    .sort((a, b) => b.date.localeCompare(a.date))
+function BestzetenTab() {
+  const { user } = useAuth()
+  const [view, setView] = useState<BestzetenView>('ranking')
+  const [allPbs, setAllPbs] = useState<SwimTimeEntry[]>([])
+  const [events, setEvents] = useState<string[]>([])
+  const [selectedEvent, setSelectedEvent] = useState('')
+  const [selectedCourse, setSelectedCourse] = useState<'LB' | 'KB' | 'OW' | 'alle'>('LB')
+  const [loading, setLoading] = useState(true)
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set())
 
-  // Group by event for PB summary
-  const pbMap = new Map<string, SwimTime>()
-  swimmerTimes.filter(t => t.isPersonalBest).forEach(t => pbMap.set(`${t.event}-${t.course}`, t))
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    const ms = parseTimeInput(form.timeInput)
-    if (!ms) { setTimeError('Format: 1:03,42 oder 63,42'); return }
-    setTimeError('')
-    if (!swimmer) return
-    store.addTime({
-      id: generateId(),
-      swimmerId: swimmer.id,
-      event: form.event,
-      course: form.course,
-      timeMs: ms,
-      date: form.date,
-      competition: form.competition || undefined,
-      isPersonalBest: false,
+  useEffect(() => {
+    Promise.all([listBestzeiten(), listEvents()]).then(([pbRes, evRes]) => {
+      if (pbRes.ok) setAllPbs(pbRes.data)
+      if (evRes.ok) {
+        setEvents(evRes.data)
+        if (evRes.data.length) setSelectedEvent(evRes.data[0])
+      }
+      setLoading(false)
     })
-    setOpen(false)
-    setForm(f => ({ ...f, timeInput: '', competition: '' }))
-  }
+  }, [])
+
+  // Ranking-Ansicht: PBs für gewählte Disziplin + Bahn, sortiert nach Zeit
+  const rankingRows = allPbs
+    .filter(t => t.event === selectedEvent && (selectedCourse === 'alle' || t.course === selectedCourse))
+    .sort((a, b) => a.time_ms - b.time_ms)
+
+  // Mitglieder-Ansicht: eine Karte pro User mit allen PBs
+  const userMap = new Map<string, { user_name: string; times: SwimTimeEntry[] }>()
+  allPbs.forEach(t => {
+    if (!userMap.has(t.user_id)) userMap.set(t.user_id, { user_name: t.user_name, times: [] })
+    userMap.get(t.user_id)!.times.push(t)
+  })
+  const userList = Array.from(userMap.entries()).sort((a, b) =>
+    a[1].user_name.localeCompare(b[1].user_name, 'de')
+  )
+
+  if (loading) return (
+    <p className="text-slate-500 text-sm text-center py-12 animate-pulse">
+      Bestzeiten werden geladen…
+    </p>
+  )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 pb-24">
-      <div className="px-4 pt-14 pb-4 max-w-lg mx-auto">
-        {swimmer && (
-          <div className="mb-4">
-            <SwimmerChip swimmer={swimmer} swimmerCount={store.swimmers.length} mode="readonly" />
-          </div>
-        )}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-white font-bold text-2xl">Zeiten</h1>
-            <p className="text-slate-400 text-sm">{swimmerTimes.length} Einträge · {pbMap.size} Bestzeiten</p>
-          </div>
+    <div className="space-y-4">
+      {/* View toggle */}
+      <div className="flex bg-slate-800/50 p-1 rounded-xl">
+        {(['ranking', 'mitglieder'] as const).map(v => (
           <button
-            onClick={() => setOpen(true)}
-            className="w-10 h-10 bg-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/30 active:scale-95 transition-transform"
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors capitalize ${
+              view === v ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <Plus size={20} className="text-white" />
+            {v === 'ranking' ? 'Ranking' : 'Mitglieder'}
           </button>
-        </div>
-
-        {/* PB summary strip */}
-        {pbMap.size > 0 && (
-          <div className="mb-5">
-            <h2 className="text-slate-400 text-xs font-medium mb-2 flex items-center gap-1.5">
-              <Star size={11} className="text-amber-400" /> Bestzeiten
-            </h2>
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-              {Array.from(pbMap.values()).map(pb => (
-                <div key={pb.id} className="flex-shrink-0 bg-slate-800/60 border border-amber-400/20 rounded-xl px-3 py-2 min-w-[120px]">
-                  <p className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
-                    <Star size={8} /> PB
-                  </p>
-                  <p className="text-white font-mono font-bold text-sm mt-0.5">{formatTime(pb.timeMs)}</p>
-                  <p className="text-slate-400 text-[10px] mt-0.5 leading-tight">{pb.event}</p>
-                  <p className="text-slate-500 text-[10px]">{pb.course === 'LB' ? 'LB' : 'KB'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="space-y-2 mb-4">
-          <div className="flex gap-2 bg-slate-800/50 p-1 rounded-xl">
-            {(['alle', 'LB', 'KB'] as const).map(c => (
-              <button
-                key={c}
-                onClick={() => setFilterCourse(c)}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  filterCourse === c ? 'bg-sky-500 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {c === 'alle' ? 'Alle Bahnen' : c === 'LB' ? 'Langbahn' : 'Kurzbahn'}
-              </button>
-            ))}
-          </div>
-          {events.length > 1 && (
-            <div className="relative">
-              <select
-                value={filterEvent}
-                onChange={e => setFilterEvent(e.target.value)}
-                className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm focus:border-sky-500 outline-none appearance-none"
-              >
-                {events.map(ev => <option key={ev} value={ev}>{ev === 'alle' ? 'Alle Disziplinen' : ev}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          )}
-        </div>
-
-        {/* Times list */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-16 text-slate-500">
-            <Timer size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Noch keine Zeiten eingetragen</p>
-            <button onClick={() => setOpen(true)} className="mt-3 text-sky-400 text-sm">Jetzt eintragen</button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((t) => {
-              const pbKey = `${t.event}-${t.course}`
-              const pb = pbMap.get(pbKey)
-              const isPB = t.isPersonalBest
-              const improvementMs = (!isPB && pb) ? t.timeMs - pb.timeMs : null
-              return (
-                <Card key={t.id} className={`flex items-center justify-between px-4 py-3 ${isPB ? 'border-amber-400/30' : ''}`}>
-                  <div className="flex items-center gap-3">
-                    {isPB ? (
-                      <div className="w-7 h-7 bg-amber-400/15 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Star size={13} className="text-amber-400" />
-                      </div>
-                    ) : improvementMs && improvementMs > 0 ? (
-                      <div className="w-7 h-7 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <TrendingDown size={13} className="text-slate-400" />
-                      </div>
-                    ) : null}
-                    <div>
-                      <p className="text-white text-sm font-medium">{t.event} · {t.course}</p>
-                      <p className="text-slate-500 text-xs">{t.competition ?? formatDate(t.date)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className={`font-mono font-bold ${isPB ? 'text-amber-400' : 'text-white'}`}>
-                        {formatTime(t.timeMs)}
-                      </p>
-                      {improvementMs && improvementMs > 0 && (
-                        <p className="text-slate-500 text-[10px]">+{formatTime(improvementMs)}</p>
-                      )}
-                    </div>
-                    <button onClick={() => store.removeTime(t.id)} className="text-slate-700 hover:text-rose-400 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        )}
+        ))}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Zeit eintragen">
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-slate-400 text-xs mb-1">Disziplin *</label>
-            <div className="relative">
-              <select
-                value={form.event}
-                onChange={e => setForm(f => ({ ...f, event: e.target.value }))}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-sky-500 outline-none appearance-none"
-              >
-                {SWIM_EVENTS.map(ev => <option key={ev}>{ev}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
+      {view === 'ranking' && (
+        <>
+          {/* Filter row */}
+          <div className="flex gap-2">
+            <select
+              value={selectedEvent}
+              onChange={e => setSelectedEvent(e.target.value)}
+              className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500"
+            >
+              {events.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+            </select>
+            <select
+              value={selectedCourse}
+              onChange={e => setSelectedCourse(e.target.value as typeof selectedCourse)}
+              className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500"
+            >
+              <option value="LB">LB</option>
+              <option value="KB">KB</option>
+              <option value="OW">OW</option>
+              <option value="alle">Alle</option>
+            </select>
           </div>
-          <div>
-            <label className="block text-slate-400 text-xs mb-1">Bahn</label>
-            <div className="flex gap-2">
-              {(['LB', 'KB'] as const).map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, course: c }))}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                    form.course === c ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-400 border border-slate-700'
+
+          {/* Ranking table */}
+          {rankingRows.length === 0 ? (
+            <p className="text-slate-600 text-sm text-center py-8">
+              Keine Zeiten für diese Auswahl
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {rankingRows.map((t, i) => (
+                <Card
+                  key={t.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${
+                    t.user_id === user?.id ? 'border-teal-500/40 bg-teal-500/5' : ''
                   }`}
                 >
-                  {c === 'LB' ? 'Langbahn' : 'Kurzbahn'}
-                </button>
+                  <span className="text-slate-500 text-xs w-5 text-right font-mono">{i + 1}.</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      t.user_id === user?.id ? 'text-teal-300' : 'text-white'
+                    }`}>
+                      {t.user_name}
+                    </p>
+                    {t.competition && (
+                      <p className="text-slate-600 text-xs truncate">{t.competition}</p>
+                    )}
+                    <p className="text-slate-600 text-xs">{t.date}</p>
+                  </div>
+                  <p className="font-mono text-white font-bold text-sm">{formatTime(t.time_ms)}</p>
+                </Card>
               ))}
             </div>
-          </div>
-          <div>
-            <label className="block text-slate-400 text-xs mb-1">Zeit * (Format: 1:03,42 oder 63,42)</label>
-            <input
-              required
-              value={form.timeInput}
-              onChange={e => { setForm(f => ({ ...f, timeInput: e.target.value })); setTimeError('') }}
-              className={`w-full bg-slate-900 border rounded-xl px-3 py-2.5 text-white text-sm font-mono focus:border-sky-500 outline-none ${timeError ? 'border-rose-500' : 'border-slate-700'}`}
-              placeholder="1:03,42"
-            />
-            {timeError && <p className="text-rose-400 text-xs mt-1">{timeError}</p>}
-          </div>
-          <div>
-            <label className="block text-slate-400 text-xs mb-1">Datum *</label>
-            <input
-              type="date"
-              required
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-sky-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-slate-400 text-xs mb-1">Wettkampf (optional)</label>
-            <input
-              value={form.competition}
-              onChange={e => setForm(f => ({ ...f, competition: e.target.value }))}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:border-sky-500 outline-none"
-              placeholder="z.B. Stadtmeisterschaften 2025"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-sky-500 hover:bg-sky-400 text-white font-semibold py-3 rounded-xl transition-colors"
-          >
-            Eintragen
-          </button>
-        </form>
-      </Modal>
+          )}
+        </>
+      )}
+
+      {view === 'mitglieder' && (
+        <div className="space-y-2">
+          {userList.map(([uid, { user_name, times }]) => {
+            const expanded = expandedUsers.has(uid)
+            const toggle = () => setExpandedUsers(prev => {
+              const next = new Set(prev)
+              expanded ? next.delete(uid) : next.add(uid)
+              return next
+            })
+            return (
+              <Card key={uid} className="overflow-hidden">
+                <button
+                  onClick={toggle}
+                  className="w-full flex items-center gap-3 px-4 py-3"
+                >
+                  <Avatar name={user_name} color="#0ea5e9" size="sm" />
+                  <span className={`flex-1 text-left text-sm font-medium ${
+                    uid === user?.id ? 'text-teal-300' : 'text-white'
+                  }`}>
+                    {user_name}
+                  </span>
+                  <span className="text-slate-500 text-xs">
+                    {times.length} PB{times.length !== 1 ? 's' : ''}
+                  </span>
+                  {expanded
+                    ? <ChevronUp size={14} className="text-slate-500" />
+                    : <ChevronDown size={14} className="text-slate-500" />
+                  }
+                </button>
+                {expanded && (
+                  <div className="border-t border-white/5 divide-y divide-white/5">
+                    {times
+                      .slice()
+                      .sort((a, b) => a.event.localeCompare(b.event, 'de'))
+                      .map(t => (
+                        <div key={t.id} className="flex items-center justify-between px-4 py-2">
+                          <div>
+                            <p className="text-white text-xs font-medium">{t.event}</p>
+                            <p className="text-slate-600 text-[11px]">{t.course} · {t.date}</p>
+                          </div>
+                          <p className="font-mono text-teal-300 text-sm font-bold">
+                            {formatTime(t.time_ms)}
+                          </p>
+                        </div>
+                      ))
+                    }
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
+  )
+}
+
+// ─── Platzhalter für noch nicht implementierte Tabs ──────────────────────────
+
+function MeineZeitenTab() {
+  return <div>Kommt bald</div>
+}
+
+function WettkampfTab() {
+  return <div>Kommt bald</div>
+}
+
+function LiveTab() {
+  return <div>Kommt bald</div>
+}
+
+// ─── Seite ───────────────────────────────────────────────────────────────────
+
+const TABS: { id: OuterTab; label: string; icon: React.ReactNode }[] = [
+  { id: 'bestzeiten', label: 'Bestzeiten', icon: <Trophy size={14} /> },
+  { id: 'meine',      label: 'Meine Zeiten', icon: <Timer size={14} /> },
+  { id: 'wettkampf',  label: 'Wettkämpfe',  icon: <Award size={14} /> },
+  { id: 'live',       label: 'LIVE',         icon: <Radio size={14} /> },
+]
+
+export function Zeiten() {
+  const [tab, setTab] = useState<OuterTab>('bestzeiten')
+
+  return (
+    <PageShell title="Zeiten">
+      <div className="flex bg-slate-800/50 p-1 rounded-xl mb-4 overflow-x-auto scrollbar-none">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-medium rounded-lg transition-colors whitespace-nowrap px-2 ${
+              tab === t.id ? 'bg-sky-500 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'bestzeiten' && <BestzetenTab />}
+      {tab === 'meine'      && <MeineZeitenTab />}
+      {tab === 'wettkampf'  && <WettkampfTab />}
+      {tab === 'live'       && <LiveTab />}
+    </PageShell>
   )
 }
