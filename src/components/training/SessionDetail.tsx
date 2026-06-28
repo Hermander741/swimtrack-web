@@ -77,13 +77,16 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
 
   async function handleSaveEntry() {
     setSavingEntry(true)
-    const res = await upsertEntry(session.id, {
-      note: note.trim() || undefined,
-      distance_m: distanceM ? parseInt(distanceM, 10) : undefined,
-      rating: rating ?? undefined,
-    })
-    if (res.ok) setEntry(res.data)
-    setSavingEntry(false)
+    try {
+      const res = await upsertEntry(session.id, {
+        note: note.trim() || undefined,
+        distance_m: distanceM ? parseInt(distanceM, 10) : undefined,
+        rating: rating ?? undefined,
+      })
+      if (res.ok) setEntry(res.data)
+    } finally {
+      setSavingEntry(false)
+    }
   }
 
   async function handleDeleteEntry() {

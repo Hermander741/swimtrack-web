@@ -12,7 +12,7 @@ export const attendanceRouter = Router({ mergeParams: true })
 attendanceRouter.get('/', requireAuth(), async (req, res) => {
   const sessionId = req.params.id
   try {
-    if (req.user!.role === 'mitglied') {
+    if (req.user!.role !== 'admin' && req.user!.role !== 'trainer') {
       const { rows } = await pool.query(
         'SELECT user_id FROM session_attendance WHERE session_id = $1 AND user_id = $2',
         [sessionId, req.user!.id],
