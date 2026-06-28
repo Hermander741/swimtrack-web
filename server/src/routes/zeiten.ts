@@ -71,15 +71,23 @@ zeitenRouter.get('/', requireAuth(), async (req, res) => {
 })
 
 // Hilfsfunktion: Lädt eine Zeit mit berechneter is_pb
+// CTE stellt sicher, dass das Window über ALLE Zeiten der Partition läuft,
+// bevor auf die angeforderte id gefiltert wird.
 async function fetchZeit(id: string) {
   const { rows } = await pool.query<SwimTimeEntry>(`
-    SELECT st.id, st.user_id, u.name AS user_name,
-      st.event, st.course, st.time_ms, st.date::text AS date,
-      st.competition, st.created_by, st.created_at,
-      (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
-    FROM swim_times st
-    JOIN users u ON u.id = st.user_id
-    WHERE st.id = $1
+    WITH target AS (
+      SELECT user_id, event, course FROM swim_times WHERE id = $1
+    ),
+    ranked AS (
+      SELECT st.id, st.user_id, u.name AS user_name,
+        st.event, st.course, st.time_ms, st.date::text AS date,
+        st.competition, st.created_by, st.created_at,
+        (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
+      FROM swim_times st
+      JOIN users u ON u.id = st.user_id
+      WHERE (st.user_id, st.event, st.course) = (SELECT user_id, event, course FROM target)
+    )
+    SELECT * FROM ranked WHERE id = $1
   `, [id])
   return rows[0] ?? null
 }
