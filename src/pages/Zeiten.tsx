@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2, RefreshCw, Download, Check, Wifi, User as UserIcon } from 'lucide-react'
+import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2, RefreshCw, Download, Check, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'

@@ -190,7 +190,6 @@ export function Profil() {
         <Button
           onClick={handleSaveMyresults}
           disabled={myresultsSaving}
-          size="sm"
           variant="secondary"
         >
           {myresultsSaved ? '✓ Gespeichert' : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
