@@ -15,6 +15,35 @@ Sub-Projekt 3b lieferte Anwesenheitserfassung, Einträge und Push-Benachrichtigu
 - Push-Benachrichtigungen für neue Bestzeiten
 - Öffentliche Vereins-Rangliste (nicht eingeloggter Zugriff)
 
+## Kanonische Disziplin-Liste (SWIM_EVENTS)
+
+`event` ist kein Freitext — nur Werte aus der kanonischen Liste sind gültig. Die Liste ist in `src/utils/format.ts` als `SWIM_EVENTS` definiert und wird **auch serverseitig** in `server/src/constants/swimEvents.ts` gespiegelt:
+
+```typescript
+export const SWIM_EVENTS = [
+  '50m Freistil', '100m Freistil', '200m Freistil', '400m Freistil', '800m Freistil', '1500m Freistil',
+  '50m Rücken', '100m Rücken', '200m Rücken',
+  '50m Brust', '100m Brust', '200m Brust',
+  '50m Schmetterling', '100m Schmetterling', '200m Schmetterling',
+  '100m Lagen', '200m Lagen', '400m Lagen',
+]
+```
+
+`GET /api/zeiten/events` liefert diese Liste — Frontend befüllt Dropdowns daraus. `POST` und `PATCH` validieren `event` gegen die Liste → 400 wenn ungültig. Kein DB-Enum (leicht erweiterbar ohne Migration).
+
+## Zeit-Format & Parsing
+
+Frontend-Eingabe: `1:03,42` (Minuten:Sekunden,Hundertstel) oder `63,42` (nur Sekunden) oder `63.42` (Punkt statt Komma). Die bestehende Funktion `parseTimeInput()` in `src/utils/format.ts` handhabt alle drei Formate und liefert Millisekunden oder `null` bei ungültigem Format:
+
+```
+"1:03,42" → 63_420 ms
+"63,42"   → 63_420 ms
+"63.42"   → 63_420 ms
+"abc"     → null (ungültig)
+```
+
+Backend validiert: `time_ms` muss positiver Integer sein (`time_ms > 0 && Number.isInteger(time_ms)`). Frontend zeigt Fehlermeldung `"Format: 1:03,42 oder 63,42"` wenn `parseTimeInput()` null liefert.
+
 ## Datenbank-Schema (`006_zeiten.sql`)
 
 ```sql
@@ -22,7 +51,7 @@ Sub-Projekt 3b lieferte Anwesenheitserfassung, Einträge und Push-Benachrichtigu
 CREATE TABLE IF NOT EXISTS swim_times (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  event        TEXT NOT NULL,
+  event        TEXT NOT NULL,   -- validiert gegen SWIM_EVENTS-Liste (API-Ebene, kein DB-Enum)
   course       TEXT NOT NULL CHECK (course IN ('LB', 'KB', 'OW')),
   time_ms      INTEGER NOT NULL,
   date         DATE NOT NULL,
@@ -60,12 +89,24 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 
 | Method | Path | Auth | Beschreibung |
 |---|---|---|---|
-| `GET` | `/api/zeiten` | JWT | Alle Zeiten aller User inkl. berechnetem `is_pb` |
+| `GET` | `/api/zeiten` | JWT | Zeiten mit optionalen Filtern, inkl. berechnetem `is_pb` |
+| `GET` | `/api/zeiten/events` | JWT | Kanonische Disziplin-Liste (`SWIM_EVENTS`) |
 | `POST` | `/api/zeiten` | JWT | Zeit eintragen; Trainer/Admin dürfen `user_id` setzen |
 | `PATCH` | `/api/zeiten/:id` | JWT | Zeit bearbeiten (alle Felder optional); eigene für alle, fremde nur Trainer/Admin |
 | `DELETE` | `/api/zeiten/:id` | JWT | Zeit löschen; eigene für alle, fremde nur Trainer/Admin |
 
+### GET /api/zeiten/events
+
+Response: `string[]` — die kanonische `SWIM_EVENTS`-Liste. Kein Auth-Overhead nötig für Caching, aber JWT trotzdem erforderlich (konsistent mit anderen Endpunkten).
+
 ### GET /api/zeiten
+
+**Optionale Query-Parameter** (alle kombinierbar):
+- `?user_id=<uuid>` — nur Zeiten dieses Users
+- `?event=<string>` — nur diese Disziplin
+- `?course=LB|KB|OW` — nur diese Bahn
+
+Beispiel: `GET /api/zeiten?event=100m+Freistil&course=LB`
 
 Response: `SwimTimeEntry[]`
 
@@ -101,7 +142,7 @@ Body: `{ user_id?: string, event: string, course: 'LB'|'KB'|'OW', time_ms: numbe
 
 - `user_id` fehlt → eigene `req.user!.id`
 - `user_id` gesetzt und nicht eigene ID → 403 wenn `role === 'mitglied'`
-- Validierung: `time_ms > 0`, `course` in Enum, `date` vorhanden
+- Validierung: `event` in `SWIM_EVENTS` → 400 sonst; `time_ms > 0 && Number.isInteger(time_ms)` → 400 sonst; `course` in `('LB','KB','OW')` → 400 sonst; `date` vorhanden → 400 sonst
 - Response: eingefügter `SwimTimeEntry`
 
 ### PATCH /api/zeiten/:id
@@ -111,6 +152,7 @@ Body: `{ event?, course?, time_ms?, date?, competition? }` — alle Felder optio
 - Eigene Zeit: immer erlaubt
 - Fremde Zeit: 403 wenn `role === 'mitglied'`
 - 404 wenn Zeit nicht gefunden
+- Validierung: falls `event` gesetzt → muss in `SWIM_EVENTS` sein; falls `time_ms` gesetzt → `> 0 && Number.isInteger`; falls `course` gesetzt → in `('LB','KB','OW')`
 - Response: aktualisierter `SwimTimeEntry`
 
 ### DELETE /api/zeiten/:id
@@ -137,7 +179,7 @@ Bestehender Endpunkt bekommt `myresults_name?: string` als zusätzlich erlaubtes
 Zwei umschaltbare Ansichten (Toggle-Buttons oben):
 
 **Ranking-Ansicht:**
-- Dropdown: Disziplin wählen (aus vorhandenen `event`-Werten)
+- Dropdown: Disziplin wählen (aus `GET /api/zeiten/events`)
 - Dropdown: Bahn (LB / KB / OW / Alle)
 - Tabelle: Rang · Name · Zeit · Datum · Wettkampf
 - Sortiert nach `time_ms` aufsteigend (schnellste zuerst)
@@ -153,7 +195,7 @@ Zwei umschaltbare Ansichten (Toggle-Buttons oben):
 - Eigene Zeiten chronologisch (neueste zuerst)
 - Filter: Disziplin / Bahn
 - Jede Eintrag zeigt: Zeit (PB-Indikator wenn `is_pb`) · Disziplin · Bahn · Datum · Wettkampf
-- **Eintragen:** FAB (+) öffnet Formular: Disziplin, Bahn (LB/KB/OW), Zeit (Format `1:03,42` oder `63,42`), Datum, Wettkampf (optional)
+- **Eintragen:** FAB (+) öffnet Formular: Disziplin (Dropdown aus `SWIM_EVENTS`), Bahn (LB/KB/OW), Zeit (Texteingabe, Format `1:03,42` oder `63,42`; `parseTimeInput()` → 400-Fehlermeldung wenn `null`), Datum, Wettkampf (optional)
 - **Bearbeiten:** Bleistift-Icon → Inline-Edit-Formular → `PATCH /api/zeiten/:id`
 - **Löschen:** Trash-Icon (mit Bestätigung)
 
@@ -183,6 +225,7 @@ In `Profil.tsx` neben der iCal-Sektion: neues Eingabefeld `myresults_name` (Text
 server/
   src/
     db/migrations/006_zeiten.sql
+    constants/swimEvents.ts    # kanonische SWIM_EVENTS-Liste (gespiegelt von src/utils/format.ts)
     routes/zeiten.ts           # zeitenRouter
   test/
     zeiten.test.ts
