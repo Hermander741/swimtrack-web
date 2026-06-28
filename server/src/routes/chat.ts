@@ -59,7 +59,7 @@ chatRouter.post('/channels', requireAuth(['admin', 'trainer']), async (req, res)
 // PATCH /api/chat/channels/:id — edit channel (admin/trainer with access)
 chatRouter.patch('/channels/:id', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { name, description, min_role } = req.body as {
       name?: string; description?: string; min_role?: string
@@ -101,7 +101,7 @@ chatRouter.delete('/channels/:id', requireAuth(['admin']), async (req, res) => {
 // POST /api/chat/channels/:id/members — add member (admin/trainer)
 chatRouter.post('/channels/:id/members', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { userId } = req.body as { userId?: string }
     if (!userId) { res.status(400).json(err('userId erforderlich')); return }
@@ -120,7 +120,7 @@ chatRouter.post('/channels/:id/members', requireAuth(['admin', 'trainer']), asyn
 // DELETE /api/chat/channels/:id/members/:userId — remove member (admin/trainer)
 chatRouter.delete('/channels/:id/members/:userId', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     await pool.query(
       `DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2`,
@@ -148,7 +148,7 @@ interface DbReaction { emoji: string; user_id: string; user_name: string }
 chatRouter.get('/channels/:id/messages', requireAuth(), async (req, res) => {
   try {
     const user = req.user!
-    const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id)
+    const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
 
     const limit = Math.min(Number(req.query.limit) || 50, 100)
@@ -231,7 +231,7 @@ chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
     if (uploadErr) { res.status(400).json(err(uploadErr.message)); return }
     try {
       const user = req.user!
-      const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id)
+      const canAccess = await userCanAccessChannel(user.id, user.role, req.params.id as string)
       if (!canAccess) {
         if (req.file) fs.unlinkSync(req.file.path)
         res.status(404).json(err('Channel nicht gefunden')); return
@@ -275,7 +275,7 @@ chatRouter.get('/attachments/:attachmentId/file', requireAuth(), async (req, res
       [req.params.attachmentId],
     )
     if (!rows[0]) { res.status(404).json(err('Anhang nicht gefunden')); return }
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, rows[0].channel_id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, rows[0].channel_id as string)
     if (!canAccess) { res.status(403).json(err('Kein Zugriff')); return }
     const resolved = path.resolve(chatUploadDir, rows[0].filename)
     const safeBase = path.resolve(chatUploadDir)
@@ -294,7 +294,7 @@ chatRouter.get('/attachments/:attachmentId/file', requireAuth(), async (req, res
 // GET /api/chat/channels/:id/pins
 chatRouter.get('/channels/:id/pins', requireAuth(), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { rows } = await pool.query(
       `SELECT pm.id, pm.channel_id, pm.message_id, pm.pinned_by, pm.pinned_at,
@@ -315,7 +315,7 @@ chatRouter.get('/channels/:id/pins', requireAuth(), async (req, res) => {
 // POST /api/chat/channels/:id/pins
 chatRouter.post('/channels/:id/pins', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { messageId } = req.body as { messageId?: string }
     if (!messageId) { res.status(400).json(err('messageId erforderlich')); return }
@@ -336,7 +336,7 @@ chatRouter.post('/channels/:id/pins', requireAuth(['admin', 'trainer']), async (
 // DELETE /api/chat/channels/:id/pins/:pinId
 chatRouter.delete('/channels/:id/pins/:pinId', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
-    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id)
+    const canAccess = await userCanAccessChannel(req.user!.id, req.user!.role, req.params.id as string)
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { rows } = await pool.query(
       `DELETE FROM pinned_messages WHERE id = $1 AND channel_id = $2 RETURNING id`,
