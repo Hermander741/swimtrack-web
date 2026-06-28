@@ -33,8 +33,10 @@ zeitenRouter.get('/bestzeiten', requireAuth(), async (_req, res) => {
 // WICHTIG: CTE berechnet is_pb über ALLE Zeiten, dann erst WHERE-Filter
 zeitenRouter.get('/', requireAuth(), async (req, res) => {
   const { user_id, event, course } = req.query as Record<string, string>
-  const limit  = Math.min(parseInt((req.query.limit  as string) || '100', 10), 500)
-  const offset = parseInt((req.query.offset as string) || '0', 10)
+  const rawLimit  = parseInt((req.query.limit  as string) || '100', 10)
+  const rawOffset = parseInt((req.query.offset as string) || '0',   10)
+  const limit  = Math.min(isNaN(rawLimit)  ? 100 : rawLimit,  500)
+  const offset = isNaN(rawOffset) ? 0 : rawOffset
 
   try {
     const { rows } = await pool.query(`
