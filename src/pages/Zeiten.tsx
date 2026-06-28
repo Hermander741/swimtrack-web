@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown } from 'lucide-react'
+import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
@@ -299,6 +299,7 @@ function MeineZeitenTab() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm('Zeit wirklich löschen?')) return
     const res = await deleteZeit(id)
     if (res.ok) {
       setTimes(prev => prev.filter(t => t.id !== id))
@@ -437,14 +438,14 @@ function MeineZeitenTab() {
                   className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-400/10 transition-colors"
                   aria-label="Bearbeiten"
                 >
-                  ✏️
+                  <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(t.id)}
                   className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 transition-colors"
                   aria-label="Löschen"
                 >
-                  🗑
+                  <Trash2 size={14} />
                 </button>
               </div>
             </Card>
@@ -455,7 +456,7 @@ function MeineZeitenTab() {
               disabled={loadingMore}
               className="w-full py-3 text-slate-400 hover:text-white text-sm font-medium transition-colors disabled:opacity-50"
             >
-              {loadingMore ? 'Wird geladen…' : `${total - times.length} weitere laden`}
+              {loadingMore ? 'Wird geladen…' : 'Mehr laden'}
             </button>
           )}
         </div>
