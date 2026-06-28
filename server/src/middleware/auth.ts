@@ -19,7 +19,7 @@ export function requireAuth(roles?: Role[]) {
     try {
       const payload = verifyAccess(header.slice(7))
       const { rows } = await pool.query<User>(
-        'SELECT id, email, name, role, avatar_color, created_at FROM users WHERE id = $1',
+        'SELECT id, email, name, role, avatar_color, created_at, myresults_name FROM users WHERE id = $1',
         [payload.sub],
       )
       if (!rows[0]) { res.status(401).json({ ok: false, error: 'User not found' }); return }

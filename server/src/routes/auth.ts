@@ -17,7 +17,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
     if (!email || !password) { res.status(400).json(err('email and password required')); return }
 
     const { rows } = await pool.query<User & { password_hash: string }>(
-      'SELECT id, email, name, role, avatar_color, created_at, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, name, role, avatar_color, created_at, myresults_name, password_hash FROM users WHERE email = $1',
       [email.toLowerCase().trim()],
     )
     const user = rows[0]
@@ -54,7 +54,7 @@ authRouter.post('/refresh', async (req, res) => {
     }
 
     const { rows: users } = await pool.query<User>(
-      'SELECT id, email, name, role, avatar_color, created_at FROM users WHERE id = $1',
+      'SELECT id, email, name, role, avatar_color, created_at, myresults_name FROM users WHERE id = $1',
       [rows[0].user_id],
     )
     if (!users[0]) { res.status(401).json(err('User not found')); return }
