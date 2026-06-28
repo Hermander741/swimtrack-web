@@ -282,3 +282,24 @@ export interface ICalToken {
   token: string
   created_at: string
 }
+
+export interface SessionAttendanceTrainer {
+  attendance: string[]
+}
+
+export interface SessionAttendanceMember {
+  present: boolean
+}
+
+export type SessionAttendance = SessionAttendanceTrainer | SessionAttendanceMember
+
+export interface SessionEntry {
+  id: string
+  session_id: string
+  user_id: string
+  note: string | null
+  distance_m: number | null
+  rating: 1 | 2 | 3 | null
+  created_at: string
+  updated_at: string
+}

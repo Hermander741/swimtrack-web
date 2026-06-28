@@ -2,6 +2,7 @@ import { apiRequest, BASE } from './client'
 import type {
   TrainingGroup, TrainingGroupMember, TrainingBlock,
   TrainingTemplate, TrainingSession, ICalToken,
+  SessionAttendance, SessionEntry,
 } from '../types'
 
 export const listGroups = () => apiRequest<TrainingGroup[]>('/api/training/groups')
@@ -80,3 +81,23 @@ export const regenerateICalToken = () =>
   apiRequest<ICalToken>('/api/training/ical-token/regenerate', { method: 'POST' })
 
 export const icalUrl = (token: string) => `${BASE}/api/training/sessions/ical?token=${token}`
+
+export const getAttendance = (sessionId: string) =>
+  apiRequest<SessionAttendance>(`/api/training/sessions/${sessionId}/attendance`)
+
+export const markAttendance = (sessionId: string, userId: string) =>
+  apiRequest<null>(`/api/training/sessions/${sessionId}/attendance/${userId}`, { method: 'POST' })
+
+export const removeAttendance = (sessionId: string, userId: string) =>
+  apiRequest<null>(`/api/training/sessions/${sessionId}/attendance/${userId}`, { method: 'DELETE' })
+
+export const getEntry = (sessionId: string) =>
+  apiRequest<SessionEntry | null>(`/api/training/sessions/${sessionId}/entry`)
+
+export const upsertEntry = (sessionId: string, data: { note?: string; distance_m?: number; rating?: 1 | 2 | 3 }) =>
+  apiRequest<SessionEntry>(`/api/training/sessions/${sessionId}/entry`, {
+    method: 'PUT', body: JSON.stringify(data),
+  })
+
+export const deleteEntry = (sessionId: string) =>
+  apiRequest<null>(`/api/training/sessions/${sessionId}/entry`, { method: 'DELETE' })
