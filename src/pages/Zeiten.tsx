@@ -19,7 +19,7 @@ function BestzetenTab() {
   const [allPbs, setAllPbs] = useState<SwimTimeEntry[]>([])
   const [events, setEvents] = useState<string[]>([])
   const [selectedEvent, setSelectedEvent] = useState('')
-  const [selectedCourse, setSelectedCourse] = useState<'LB' | 'KB' | 'OW' | 'alle'>('LB')
+  const [selectedCourse, setSelectedCourse] = useState<'LB' | 'KB' | 'OW' | 'alle'>('alle')
   const [loading, setLoading] = useState(true)
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set())
 
@@ -30,8 +30,7 @@ function BestzetenTab() {
         setEvents(evRes.data)
         if (evRes.data.length) setSelectedEvent(evRes.data[0])
       }
-      setLoading(false)
-    })
+    }).finally(() => setLoading(false))
   }, [])
 
   // Ranking-Ansicht: PBs für gewählte Disziplin + Bahn, sortiert nach Zeit
@@ -40,13 +39,13 @@ function BestzetenTab() {
     .sort((a, b) => a.time_ms - b.time_ms)
 
   // Mitglieder-Ansicht: eine Karte pro User mit allen PBs
-  const userMap = new Map<string, { user_name: string; times: SwimTimeEntry[] }>()
+  const userMap = new Map<string, { user_name: string; avatar_color: string; times: SwimTimeEntry[] }>()
   allPbs.forEach(t => {
-    if (!userMap.has(t.user_id)) userMap.set(t.user_id, { user_name: t.user_name, times: [] })
+    if (!userMap.has(t.user_id)) userMap.set(t.user_id, { user_name: t.user_name, avatar_color: t.avatar_color, times: [] })
     userMap.get(t.user_id)!.times.push(t)
   })
   const userList = Array.from(userMap.entries()).sort((a, b) =>
-    a[1].user_name.localeCompare(b[1].user_name, 'de')
+    a[1].user_name.localeCompare(b[1].user_name, 'de'),
   )
 
   if (loading) return (
@@ -131,7 +130,7 @@ function BestzetenTab() {
 
       {view === 'mitglieder' && (
         <div className="space-y-2">
-          {userList.map(([uid, { user_name, times }]) => {
+          {userList.map(([uid, { user_name, avatar_color, times }]) => {
             const expanded = expandedUsers.has(uid)
             const toggle = () => setExpandedUsers(prev => {
               const next = new Set(prev)
@@ -144,7 +143,7 @@ function BestzetenTab() {
                   onClick={toggle}
                   className="w-full flex items-center gap-3 px-4 py-3"
                 >
-                  <Avatar name={user_name} color="#0ea5e9" size="sm" />
+                  <Avatar name={user_name} color={avatar_color} size="sm" />
                   <span className={`flex-1 text-left text-sm font-medium ${
                     uid === user?.id ? 'text-teal-300' : 'text-white'
                   }`}>
@@ -189,15 +188,15 @@ function BestzetenTab() {
 // ─── Platzhalter für noch nicht implementierte Tabs ──────────────────────────
 
 function MeineZeitenTab() {
-  return <div>Kommt bald</div>
+  return <div className="text-slate-500 text-sm text-center py-12">Kommt bald</div>
 }
 
 function WettkampfTab() {
-  return <div>Kommt bald</div>
+  return <div className="text-slate-500 text-sm text-center py-12">Kommt bald</div>
 }
 
 function LiveTab() {
-  return <div>Kommt bald</div>
+  return <div className="text-slate-500 text-sm text-center py-12">Kommt bald</div>
 }
 
 // ─── Seite ───────────────────────────────────────────────────────────────────

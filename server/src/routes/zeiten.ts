@@ -6,7 +6,7 @@ import { ok, err } from '../types'
 import { SWIM_EVENTS } from '../constants/swimEvents'
 
 interface SwimTimeEntry {
-  id: string; user_id: string; user_name: string
+  id: string; user_id: string; user_name: string; avatar_color: string
   event: string; course: string; time_ms: number
   date: string; competition: string | null; created_by: string | null
   created_at: string; is_pb: boolean
@@ -24,7 +24,7 @@ zeitenRouter.get('/bestzeiten', requireAuth(), async (_req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT DISTINCT ON (st.user_id, st.event, st.course)
-        st.id, st.user_id, u.name AS user_name,
+        st.id, st.user_id, u.name AS user_name, u.avatar_color,
         st.event, st.course, st.time_ms, st.date::text AS date,
         st.competition, st.created_by, st.created_at,
         true AS is_pb
@@ -48,7 +48,7 @@ zeitenRouter.get('/', requireAuth(), async (req, res) => {
   try {
     const { rows } = await pool.query(`
       WITH times_with_pb AS (
-        SELECT st.id, st.user_id, u.name AS user_name,
+        SELECT st.id, st.user_id, u.name AS user_name, u.avatar_color,
           st.event, st.course, st.time_ms, st.date::text AS date,
           st.competition, st.created_by, st.created_at,
           (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
@@ -79,7 +79,7 @@ async function fetchZeit(id: string) {
       SELECT user_id, event, course FROM swim_times WHERE id = $1
     ),
     ranked AS (
-      SELECT st.id, st.user_id, u.name AS user_name,
+      SELECT st.id, st.user_id, u.name AS user_name, u.avatar_color,
         st.event, st.course, st.time_ms, st.date::text AS date,
         st.competition, st.created_by, st.created_at,
         (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb

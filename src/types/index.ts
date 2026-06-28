@@ -311,6 +311,7 @@ export interface SwimTimeEntry {
   id: string
   user_id: string
   user_name: string
+  avatar_color: string
   event: string
   course: 'LB' | 'KB' | 'OW'
   time_ms: number
