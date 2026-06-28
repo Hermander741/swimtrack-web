@@ -87,8 +87,8 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
   }
 
   async function handleDeleteEntry() {
-    await deleteEntry(session.id)
-    setEntry(null); setNote(''); setDistanceM(''); setRating(null)
+    const res = await deleteEntry(session.id)
+    if (res.ok) { setEntry(null); setNote(''); setDistanceM(''); setRating(null) }
   }
 
   return (
@@ -141,7 +141,7 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
           )}
 
           {/* Attendance section — trainer/admin only */}
-          {isTrainer && session.group_id && members.length > 0 && (
+          {isTrainer && session.group_id && (
             <div className="mb-4">
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Anwesenheit</h3>
               <div className="glass rounded-xl divide-y divide-white/10">
