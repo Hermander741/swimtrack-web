@@ -58,6 +58,7 @@ export interface User {
   role: Role
   avatar_color: string
   created_at: string
+  myresults_name?: string
 }
 
 export interface Invitation {

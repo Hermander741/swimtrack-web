@@ -20,14 +20,18 @@ usersRouter.get('/', requireAuth(['admin', 'trainer']), async (_req, res) => {
 
 usersRouter.patch('/me', requireAuth(), async (req, res) => {
   try {
-    const { name, password, avatar_color } = req.body as {
-      name?: string; password?: string; avatar_color?: string
+    const { name, password, avatar_color, myresults_name } = req.body as {
+      name?: string; password?: string; avatar_color?: string; myresults_name?: string
     }
     const updates: string[] = []
     const values: unknown[] = []
 
     if (name) { updates.push(`name = $${updates.length + 1}`); values.push(name.trim()) }
     if (avatar_color) { updates.push(`avatar_color = $${updates.length + 1}`); values.push(avatar_color) }
+    if ('myresults_name' in req.body) {
+      updates.push(`myresults_name = $${updates.length + 1}`)
+      values.push(myresults_name ?? null)
+    }
     if (password) {
       if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
       const hash = await bcrypt.hash(password, 12)
@@ -39,7 +43,7 @@ usersRouter.patch('/me', requireAuth(), async (req, res) => {
     values.push(req.user!.id)
     const { rows } = await pool.query<User>(
       `UPDATE users SET ${updates.join(', ')} WHERE id = $${values.length}
-       RETURNING id, email, name, role, avatar_color, created_at`,
+       RETURNING id, email, name, role, avatar_color, created_at, myresults_name`,
       values,
     )
     res.json(ok(rows[0]))

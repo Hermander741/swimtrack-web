@@ -35,7 +35,7 @@ entriesRouter.put('/', requireAuth(), async (req, res) => {
     note?: string; distance_m?: number; rating?: number
   }
   try {
-    const inWindow = await checkWindow(req.params.id)
+    const inWindow = await checkWindow(req.params.id as string)
     if (!inWindow) { res.status(403).json(err('Session außerhalb des 90-Tage-Fensters')); return }
     if (rating !== undefined && ![1, 2, 3].includes(rating)) {
       res.status(400).json(err('rating muss 1, 2 oder 3 sein')); return

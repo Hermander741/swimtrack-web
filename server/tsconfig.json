@@ -10,8 +10,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "test"],
+  "include": ["src"],
   "ts-node": {
-    "files": true
+    "files": true,
+    "include": ["src", "test"]
   }
 }
