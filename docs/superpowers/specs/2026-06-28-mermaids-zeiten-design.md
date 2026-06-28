@@ -29,6 +29,8 @@ export const SWIM_EVENTS = [
 ]
 ```
 
+`100m Lagen` ist kein offizieller Wettkampf-Einzelstart, bleibt aber in der Liste für **Trainingszeiten** (z.B. Testsatz im Training).
+
 `GET /api/zeiten/events` liefert diese Liste — Frontend befüllt Dropdowns daraus. `POST` und `PATCH` validieren `event` gegen die Liste → 400 wenn ungültig. Kein DB-Enum (leicht erweiterbar ohne Migration).
 
 ## Zeit-Format & Parsing
@@ -89,7 +91,8 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 
 | Method | Path | Auth | Beschreibung |
 |---|---|---|---|
-| `GET` | `/api/zeiten` | JWT | Zeiten mit optionalen Filtern, inkl. berechnetem `is_pb` |
+| `GET` | `/api/zeiten` | JWT | Zeiten mit Filtern + Pagination, inkl. `is_pb` |
+| `GET` | `/api/zeiten/bestzeiten` | JWT | Nur PBs pro User/Event/Course (klein, für Bestzeiten-Tab) |
 | `GET` | `/api/zeiten/events` | JWT | Kanonische Disziplin-Liste (`SWIM_EVENTS`) |
 | `POST` | `/api/zeiten` | JWT | Zeit eintragen; Trainer/Admin dürfen `user_id` setzen |
 | `PATCH` | `/api/zeiten/:id` | JWT | Zeit bearbeiten (alle Felder optional); eigene für alle, fremde nur Trainer/Admin |
@@ -99,16 +102,36 @@ Alle REST-Responses: `{ ok: true, data: T }` oder `{ ok: false, error: string }`
 
 Response: `string[]` — die kanonische `SWIM_EVENTS`-Liste. Kein Auth-Overhead nötig für Caching, aber JWT trotzdem erforderlich (konsistent mit anderen Endpunkten).
 
+### GET /api/zeiten/bestzeiten
+
+Gibt nur die jeweils beste Zeit pro User/Event/Course zurück — weit kleiner als alle Zeiten. Wird vom **Bestzeiten-Tab** verwendet.
+
+Response: `SwimTimeEntry[]` (immer `is_pb: true`)
+
+```sql
+SELECT DISTINCT ON (st.user_id, st.event, st.course)
+  st.id, st.user_id, u.name AS user_name,
+  st.event, st.course, st.time_ms, st.date, st.competition, st.created_by, st.created_at,
+  true AS is_pb
+FROM swim_times st
+JOIN users u ON u.id = st.user_id
+ORDER BY st.user_id, st.event, st.course, st.time_ms ASC
+```
+
 ### GET /api/zeiten
+
+**Für Meine-Zeiten-Tab** (eigene Zeiten chronologisch) und Trainer-Übersichten.
 
 **Optionale Query-Parameter** (alle kombinierbar):
 - `?user_id=<uuid>` — nur Zeiten dieses Users
 - `?event=<string>` — nur diese Disziplin
 - `?course=LB|KB|OW` — nur diese Bahn
+- `?limit=<n>` — Anzahl Einträge (default: 100, max: 500)
+- `?offset=<n>` — Offset für Pagination (default: 0)
 
-Beispiel: `GET /api/zeiten?event=100m+Freistil&course=LB`
+Beispiel: `GET /api/zeiten?user_id=<me>&event=100m+Freistil&limit=100&offset=0`
 
-Response: `SwimTimeEntry[]`
+Response: `{ data: SwimTimeEntry[], total: number }` — `total` für Pagination-Anzeige.
 
 ```typescript
 interface SwimTimeEntry {
@@ -126,15 +149,26 @@ interface SwimTimeEntry {
 }
 ```
 
-`is_pb` wird per Window-Function berechnet:
+**WICHTIG — `is_pb` muss per CTE berechnet werden, BEVOR die WHERE-Filter angewendet werden.** Sonst würde `is_pb` nur gegen die gefilterten Einträge stimmen statt gegen alle Zeiten des Users für diesen Event/Course:
+
 ```sql
-SELECT st.*,
-  u.name AS user_name,
-  (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
-FROM swim_times st
-JOIN users u ON u.id = st.user_id
-ORDER BY st.date DESC, st.created_at DESC
+WITH times_with_pb AS (
+  SELECT st.*,
+    u.name AS user_name,
+    (st.time_ms = MIN(st.time_ms) OVER (PARTITION BY st.user_id, st.event, st.course)) AS is_pb
+  FROM swim_times st
+  JOIN users u ON u.id = st.user_id
+)
+SELECT *, COUNT(*) OVER () AS total_count
+FROM times_with_pb
+WHERE ($1::uuid IS NULL OR user_id = $1)
+  AND ($2::text  IS NULL OR event  = $2)
+  AND ($3::text  IS NULL OR course = $3)
+ORDER BY date DESC, created_at DESC
+LIMIT $4 OFFSET $5
 ```
+
+`total_count` aus dem Window wird serverseitig ausgelesen und als `total` im Response mitgegeben.
 
 ### POST /api/zeiten
 
@@ -190,11 +224,14 @@ Zwei umschaltbare Ansichten (Toggle-Buttons oben):
 - Karte aufklappbar: alle Bestzeiten des Mitglieds (je event+course)
 - Sortiert: alphabetisch nach Name
 
+Beide Ansichten verwenden `GET /api/zeiten/bestzeiten` (keine Pagination nötig, da nur eine Zeit pro User/Event/Course).
+
 #### Tab 2: Meine Zeiten
 
-- Eigene Zeiten chronologisch (neueste zuerst)
-- Filter: Disziplin / Bahn
-- Jede Eintrag zeigt: Zeit (PB-Indikator wenn `is_pb`) · Disziplin · Bahn · Datum · Wettkampf
+- Eigene Zeiten chronologisch (neueste zuerst) via `GET /api/zeiten?user_id=<me>&limit=100&offset=0`
+- Filter: Disziplin / Bahn (nutzen Query-Params, kein Client-Side-Filter)
+- Pagination: „Mehr laden"-Button wenn `offset + limit < total`
+- Jeder Eintrag zeigt: Zeit (PB-Indikator wenn `is_pb`) · Disziplin · Bahn · Datum · Wettkampf
 - **Eintragen:** FAB (+) öffnet Formular: Disziplin (Dropdown aus `SWIM_EVENTS`), Bahn (LB/KB/OW), Zeit (Texteingabe, Format `1:03,42` oder `63,42`; `parseTimeInput()` → 400-Fehlermeldung wenn `null`), Datum, Wettkampf (optional)
 - **Bearbeiten:** Bleistift-Icon → Inline-Edit-Formular → `PATCH /api/zeiten/:id`
 - **Löschen:** Trash-Icon (mit Bestätigung)
