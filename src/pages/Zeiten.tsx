@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2 } from 'lucide-react'
+import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2, RefreshCw, Download, Check, Wifi, User as UserIcon } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
@@ -7,7 +7,8 @@ import { Avatar } from '../components/ui/Avatar'
 import { listBestzeiten, listEvents, listZeiten, createZeit, updateZeit, deleteZeit } from '../api/zeiten'
 import { listUsers } from '../api/users'
 import { formatTime, parseTimeInput } from '../utils/format'
-import type { SwimTimeEntry } from '../types'
+import type { SwimTimeEntry, MeetSummary, SwimmerResult, LiveResult, SwimResult } from '../types'
+import { apiRequest } from '../api/client'
 
 type OuterTab = 'bestzeiten' | 'meine' | 'wettkampf' | 'live'
 type BestzetenView = 'ranking' | 'mitglieder'
@@ -477,12 +478,304 @@ function MeineZeitenTab() {
   )
 }
 
+// ─── Wettkämpfe + LIVE Tabs ──────────────────────────────────────────────────
+
+function normalizeEventName(raw: string): string {
+  return raw
+    .replace(/^\d+\s*-\s*/, '')
+    .replace(/\s+(Damen|Herren|Mixed|gemischt|Frauen|Männer)$/i, '')
+    .trim()
+}
+
+type WettkämpfeSubTab = 'meets' | 'swimmer'
+
 function WettkampfTab() {
-  return <div className="text-slate-500 text-sm text-center py-12">Kommt bald</div>
+  const [subTab, setSubTab] = useState<WettkämpfeSubTab>('meets')
+  return (
+    <div className="space-y-4">
+      <div className="flex bg-slate-800/50 p-1 rounded-xl">
+        {(['meets', 'swimmer'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setSubTab(t)}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${
+              subTab === t ? 'bg-sky-500 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {t === 'meets' ? 'Wettkämpfe' : 'Mein Schwimmer'}
+          </button>
+        ))}
+      </div>
+      {subTab === 'meets'   && <WettkämpfeInner />}
+      {subTab === 'swimmer' && <MeinSchwimmerInner />}
+    </div>
+  )
+}
+
+function WettkämpfeInner() {
+  const [meets, setMeets]   = useState<MeetSummary[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError]   = useState('')
+
+  const load = async () => {
+    setLoading(true); setError('')
+    const res = await apiRequest<MeetSummary[]>('/api/meets?status=all')
+    if (res.ok) setMeets(res.data)
+    else setError(res.error)
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-slate-500 text-xs">{meets.length} Wettkämpfe</p>
+        <button onClick={load} disabled={loading} className="text-slate-500 hover:text-white p-1">
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+      {error && <p className="text-rose-400 text-sm text-center py-4">{error}</p>}
+      {loading && !meets.length && (
+        <p className="text-slate-500 text-sm text-center py-8 animate-pulse">Wettkämpfe werden geladen…</p>
+      )}
+      {meets.map(m => (
+        <Card key={m.id} className="px-4 py-3">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+                  {m.status === 'recent' ? 'Abgeschlossen' : m.status === 'today' ? 'Heute' : 'Geplant'}
+                </span>
+                <span className="text-[10px] text-slate-500">{m.course}</span>
+              </div>
+              <p className="text-white text-sm font-medium leading-tight">{m.name}</p>
+              <p className="text-slate-500 text-xs mt-0.5">{m.location}</p>
+              <p className="text-slate-600 text-xs">{m.startDate}{m.startDate !== m.endDate ? ` – ${m.endDate}` : ''}</p>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+function MeinSchwimmerInner() {
+  const { user } = useAuth()
+  const [results, setResults]   = useState<SwimmerResult[]>([])
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [imported, setImported] = useState<Set<string>>(new Set())
+
+  const searchName = user?.myresults_name ?? (user?.name.toUpperCase() ?? '')
+
+  const load = async () => {
+    if (!user) return
+    setLoading(true); setError('')
+    const params = new URLSearchParams({ name: searchName })
+    const res = await apiRequest<SwimmerResult[]>(`/api/swimmer/results?${params}`)
+    if (res.ok) setResults(res.data)
+    else setError(res.error)
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [user?.id])
+
+  async function importResult(r: SwimmerResult) {
+    if (!user) return
+    const eventName = normalizeEventName(r.eventName)
+    const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
+    const res = await createZeit({
+      event: eventName, course: r.course,
+      time_ms: r.result.timeMs, date: r.meetDate, competition: r.meetName,
+    })
+    if (res.ok) setImported(prev => new Set([...prev, key]))
+  }
+
+  async function importAll() {
+    const pending = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}-${r.result.timeMs}`))
+    await Promise.allSettled(pending.map(r => importResult(r)))
+  }
+
+  if (!user?.myresults_name && searchName === user?.name.toUpperCase()) {
+    return (
+      <div className="text-center py-12">
+        <UserIcon size={36} className="mx-auto mb-3 text-slate-700" />
+        <p className="text-slate-500 text-sm">Hinterlege deinen myresults.eu-Namen im Profil</p>
+        <p className="text-slate-600 text-xs mt-1">Format: NACHNAME Vorname</p>
+      </div>
+    )
+  }
+
+  const notYetImported = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}-${r.result.timeMs}`))
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-slate-500 text-xs">Suche: <span className="text-slate-300">{searchName}</span></p>
+          <p className="text-slate-600 text-xs">Letzte 5 Wettkämpfe</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {notYetImported.length > 0 && (
+            <button onClick={importAll} className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+              <Download size={12} /> Alle ({notYetImported.length})
+            </button>
+          )}
+          <button onClick={load} disabled={loading} className="text-slate-500 hover:text-white p-1">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+      {error && <p className="text-rose-400 text-sm text-center py-4">{error}</p>}
+      {loading && !results.length && (
+        <p className="text-slate-500 text-sm text-center py-8 animate-pulse">Ergebnisse werden gesucht…</p>
+      )}
+      {!loading && results.length === 0 && !error && (
+        <p className="text-slate-600 text-sm text-center py-8">Keine Ergebnisse gefunden</p>
+      )}
+      {results.map(r => {
+        const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
+        const isImported = imported.has(key)
+        return (
+          <Card key={key} className="flex items-center gap-3 px-4 py-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-medium">{normalizeEventName(r.eventName)}</p>
+              <p className="text-slate-500 text-xs">{r.meetName}</p>
+              <p className="text-slate-600 text-xs">{r.meetDate} · Platz {r.result.rank}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="font-mono text-white font-bold text-sm">
+                {r.result.timeMs > 0 ? formatTime(r.result.timeMs) : '—'}
+              </p>
+              <button
+                onClick={() => importResult(r)}
+                disabled={isImported}
+                className={`p-2 rounded-xl transition-colors ${isImported ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
+              >
+                {isImported ? <Check size={15} /> : <Download size={15} />}
+              </button>
+            </div>
+          </Card>
+        )
+      })}
+    </div>
+  )
 }
 
 function LiveTab() {
-  return <div className="text-slate-500 text-sm text-center py-12">Kommt bald</div>
+  const { user } = useAuth()
+  const [meets, setMeets]               = useState<MeetSummary[]>([])
+  const [selectedMeetId, setSelectedMeetId] = useState('')
+  const [liveData, setLiveData]         = useState<LiveResult | null>(null)
+  const [loading, setLoading]           = useState(false)
+  const [lastUpdated, setLastUpdated]   = useState<Date | null>(null)
+  const [savedIds, setSavedIds]         = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    apiRequest<MeetSummary[]>('/api/meets?status=upcoming').then(res => {
+      if (!res.ok) return
+      const liveMeets = res.data.filter(m => m.hasLive || m.status === 'today' || m.status === 'upcoming')
+      setMeets(liveMeets)
+      if (liveMeets.length && !selectedMeetId) setSelectedMeetId(liveMeets[0].id)
+    })
+  }, [])
+
+  const fetchLive = async () => {
+    if (!selectedMeetId) return
+    const res = await apiRequest<LiveResult>(`/api/meets/${selectedMeetId}/live?urlStatus=Today-Upcoming`)
+    if (res.ok) { setLiveData(res.data); setLastUpdated(new Date()) }
+  }
+
+  useEffect(() => {
+    if (!selectedMeetId) return
+    setLoading(true)
+    fetchLive().finally(() => setLoading(false))
+    const interval = setInterval(fetchLive, 10000)
+    return () => clearInterval(interval)
+  }, [selectedMeetId])
+
+  async function saveTime(result: SwimResult) {
+    if (!user || !liveData?.event) return
+    const eventName = normalizeEventName(liveData.event)
+    const today = new Date().toISOString().split('T')[0]
+    const res = await createZeit({
+      event: eventName,
+      course: meets.find(m => m.id === selectedMeetId)?.course ?? 'LB',
+      time_ms: result.timeMs,
+      date: today,
+      competition: meets.find(m => m.id === selectedMeetId)?.name,
+    })
+    if (res.ok) setSavedIds(prev => new Set([...prev, result.participantId]))
+  }
+
+  return (
+    <div className="space-y-4">
+      {meets.length > 0 && (
+        <select
+          value={selectedMeetId}
+          onChange={e => { setSelectedMeetId(e.target.value); setSavedIds(new Set()) }}
+          className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-sky-500"
+        >
+          {meets.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          {liveData?.status === 0 ? (
+            <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> LIVE
+            </span>
+          ) : (
+            <span className="text-slate-600 text-xs">Kein LIVE-Stream aktiv</span>
+          )}
+        </div>
+        {lastUpdated && (
+          <p className="text-slate-700 text-[10px]">
+            Aktualisiert {lastUpdated.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </p>
+        )}
+      </div>
+
+      {liveData?.status === 0 && liveData.event && (
+        <div>
+          <h3 className="text-slate-300 text-sm font-medium mb-2">{liveData.event}</h3>
+          <div className="space-y-1.5">
+            {(liveData.results ?? []).map(r => {
+              const isMe = user && (
+                r.name.toLowerCase().includes(user.name.toLowerCase().split(' ')[0])
+                || (user.myresults_name && r.name.toLowerCase().includes(user.myresults_name.toLowerCase().split(' ')[0]))
+              )
+              return (
+                <Card key={r.participantId} className={`flex items-center gap-3 px-4 py-2.5 ${isMe ? 'border-sky-500/40 bg-sky-500/5' : ''}`}>
+                  <span className="text-slate-500 text-xs w-5 text-right">{r.rank}.</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${isMe ? 'text-sky-300' : 'text-white'}`}>{r.name}</p>
+                    <p className="text-slate-600 text-xs">{r.club}</p>
+                  </div>
+                  <p className="font-mono text-white text-sm">{r.timeMs > 0 ? formatTime(r.timeMs) : '—'}</p>
+                  {isMe && r.timeMs > 0 && (
+                    <button
+                      onClick={() => saveTime(r)}
+                      disabled={savedIds.has(r.participantId)}
+                      className={`p-1.5 rounded-lg transition-colors ${savedIds.has(r.participantId) ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
+                    >
+                      {savedIds.has(r.participantId) ? <Check size={13} /> : <Download size={13} />}
+                    </button>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {loading && !liveData && (
+        <p className="text-slate-500 text-sm text-center py-8 animate-pulse">LIVE-Daten werden geladen…</p>
+      )}
+    </div>
+  )
 }
 
 // ─── Seite ───────────────────────────────────────────────────────────────────

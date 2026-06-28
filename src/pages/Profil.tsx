@@ -26,6 +26,9 @@ export function Profil() {
   const [icalToken, setICalToken] = useState<ICalToken | null>(null)
   const [icalLoading, setICalLoading] = useState(false)
   const [icalCopied, setICalCopied] = useState(false)
+  const [myresultsName, setMyresultsName] = useState(user?.myresults_name ?? '')
+  const [myresultsSaving, setMyresultsSaving] = useState(false)
+  const [myresultsSaved, setMyresultsSaved] = useState(false)
 
   useEffect(() => {
     getICalToken().then(res => { if (res.ok) setICalToken(res.data) })
@@ -77,6 +80,13 @@ export function Profil() {
     await navigator.clipboard.writeText(icalUrl(icalToken.token))
     setICalCopied(true)
     setTimeout(() => setICalCopied(false), 2000)
+  }
+
+  async function handleSaveMyresults() {
+    setMyresultsSaving(true)
+    const res = await updateMe({ myresults_name: myresultsName || undefined })
+    if (res.ok) { setUser(res.data); setMyresultsSaved(true); setTimeout(() => setMyresultsSaved(false), 2000) }
+    setMyresultsSaving(false)
   }
 
   if (!user) return null
@@ -163,6 +173,28 @@ export function Profil() {
         >
           {icalLoading ? 'Wird erneuert…' : 'Link zurücksetzen'}
         </button>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div>
+          <h3 className="text-white font-medium text-sm">myresults.eu</h3>
+          <p className="text-slate-500 text-xs mt-0.5">Dein Suchname für automatische Ergebnis-Importe</p>
+        </div>
+        <input
+          type="text"
+          placeholder="NACHNAME Vorname (z.B. URBAN Herman)"
+          value={myresultsName}
+          onChange={e => { setMyresultsName(e.target.value); setMyresultsSaved(false) }}
+          className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500"
+        />
+        <Button
+          onClick={handleSaveMyresults}
+          disabled={myresultsSaving}
+          size="sm"
+          variant="secondary"
+        >
+          {myresultsSaved ? '✓ Gespeichert' : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
+        </Button>
       </Card>
     </PageShell>
   )
