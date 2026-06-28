@@ -102,6 +102,7 @@ export interface User {
   role: Role
   avatar_color: string
   created_at: string
+  myresults_name?: string
 }
 
 export interface Invitation {
@@ -302,4 +303,25 @@ export interface SessionEntry {
   rating: 1 | 2 | 3 | null
   created_at: string
   updated_at: string
+}
+
+// --- Zeiten types ---
+
+export interface SwimTimeEntry {
+  id: string
+  user_id: string
+  user_name: string
+  event: string
+  course: 'LB' | 'KB' | 'OW'
+  time_ms: number
+  date: string              // ISO date "YYYY-MM-DD"
+  competition: string | null
+  created_by: string | null
+  created_at: string
+  is_pb: boolean
+}
+
+export interface ZeitenListResponse {
+  items: SwimTimeEntry[]
+  total: number
 }
