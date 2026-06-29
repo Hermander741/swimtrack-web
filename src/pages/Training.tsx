@@ -65,7 +65,11 @@ export function Training() {
       )}
 
       {selectedSession && (
-        <SessionDetail session={selectedSession} onClose={() => setSelectedSession(null)} />
+        <SessionDetail
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+          onDeleted={() => { training.refreshAll(); setSelectedSession(null) }}
+        />
       )}
 
       {isTrainer && showTrainerPanel && (

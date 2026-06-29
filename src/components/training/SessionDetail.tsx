@@ -7,18 +7,19 @@ import type { TrainingSession, TrainingGroupMember, SessionEntry } from '../../t
 import { BlockItem } from './BlockItem'
 import {
   getAttendance, markAttendance, removeAttendance,
-  getEntry, upsertEntry, deleteEntry,
+  getEntry, upsertEntry, deleteEntry, deleteSession,
   listGroupMembers,
 } from '../../api/training'
 
 interface SessionDetailProps {
   session: TrainingSession
   onClose: () => void
+  onDeleted?: () => void
 }
 
 const RATING_ICONS: Record<number, string> = { 1: '👎', 2: '😐', 3: '👍' }
 
-export function SessionDetail({ session, onClose }: SessionDetailProps) {
+export function SessionDetail({ session, onClose, onDeleted }: SessionDetailProps) {
   const { user } = useAuth()
   const dateStr = format(parseISO(session.date), 'EEEE, d. MMMM yyyy', { locale: de })
   const time = session.start_time.slice(0, 5)
@@ -103,6 +104,18 @@ export function SessionDetail({ session, onClose }: SessionDetailProps) {
       >
         <div className="flex items-center justify-between px-6 pt-4 pb-2 flex-shrink-0">
           <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+          {isTrainer && (
+            <button
+              onClick={async () => {
+                if (!confirm('Session löschen?')) return
+                const res = await deleteSession(session.id)
+                if (res.ok) { onDeleted?.(); onClose() }
+              }}
+              className="absolute left-4 top-4 p-2 text-slate-500 hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
           <button onClick={onClose} className="absolute right-4 top-4 p-2 text-slate-400 hover:text-white">
             <X size={20} />
           </button>

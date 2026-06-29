@@ -28,6 +28,20 @@ interface SessionEditorProps {
   onClose: () => void
 }
 
+// JS getDay(): 0=So,1=Mo,2=Di,3=Mi,4=Do,5=Fr,6=Sa
+const DOW_LABELS: [number, string][] = [[1,'Mo'],[2,'Di'],[3,'Mi'],[4,'Do'],[5,'Fr'],[6,'Sa'],[0,'So']]
+
+function generateDates(from: string, until: string, days: number[]): string[] {
+  const dates: string[] = []
+  const cur = new Date(from + 'T00:00:00')
+  const end = new Date(until + 'T00:00:00')
+  while (cur <= end) {
+    if (days.includes(cur.getDay())) dates.push(cur.toISOString().slice(0, 10))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dates
+}
+
 export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEditorProps) {
   const [title, setTitle] = useState('')
   const [groupId, setGroupId] = useState(groups[0]?.id ?? '')
@@ -40,6 +54,9 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
   const [selectedBlocks, setSelectedBlocks] = useState<SelectedBlock[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [recurring, setRecurring] = useState(false)
+  const [recurDays, setRecurDays] = useState<number[]>([])
+  const [recurUntil, setRecurUntil] = useState('')
 
   function addBlock(b: TrainingBlock) {
     setSelectedBlocks(prev => [...prev, { block_id: b.id, name: b.name, category: b.category, override_note: undefined }])
@@ -70,12 +87,14 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
   async function handleSave() {
     if (!title.trim()) { setError('Titel erforderlich'); return }
     if (!isExternal && !groupId) { setError('Gruppe erforderlich'); return }
+    if (recurring && recurDays.length === 0) { setError('Mindestens einen Wochentag wählen'); return }
+    if (recurring && !recurUntil) { setError('Enddatum erforderlich'); return }
     setSaving(true)
     setError('')
-    const res = await createSession({
+
+    const sessionData = {
       group_id: isExternal ? undefined : groupId || undefined,
       title: title.trim(),
-      date,
       start_time: startTime,
       duration_min: parseInt(durationMin, 10) || 90,
       location: location || undefined,
@@ -84,20 +103,27 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
       blocks: selectedBlocks.map(sb => {
         const b = blocks.find(bl => bl.id === sb.block_id)
         return {
-          block_id: sb.block_id,
-          name: sb.name,
-          category: sb.category,
-          distance_m: b?.distance_m ?? undefined,
-          stroke: b?.stroke ?? undefined,
-          reps: b?.reps ?? undefined,
-          rest_s: b?.rest_s ?? undefined,
-          description: b?.description ?? undefined,
-          override_note: sb.override_note || undefined,
+          block_id: sb.block_id, name: sb.name, category: sb.category,
+          distance_m: b?.distance_m ?? undefined, stroke: b?.stroke ?? undefined,
+          reps: b?.reps ?? undefined, rest_s: b?.rest_s ?? undefined,
+          description: b?.description ?? undefined, override_note: sb.override_note || undefined,
         }
       }),
-    })
-    setSaving(false)
-    if (!res.ok) { setError(res.error); return }
+    }
+
+    if (!recurring) {
+      const res = await createSession({ ...sessionData, date })
+      setSaving(false)
+      if (!res.ok) { setError(res.error); return }
+    } else {
+      const dates = generateDates(date, recurUntil, recurDays)
+      if (dates.length === 0) { setSaving(false); setError('Keine Termine im gewählten Zeitraum'); return }
+      const results = await Promise.all(dates.map(d => createSession({ ...sessionData, date: d })))
+      setSaving(false)
+      const failed = results.find(r => !r.ok)
+      if (failed && !failed.ok) { setError(failed.error); return }
+    }
+
     onSaved()
     onClose()
   }
@@ -150,7 +176,40 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
         </div>
       )}
 
-      <Input label="Datum" type="date" value={date} onChange={e => setDate(e.target.value)} />
+      <div className="flex items-center gap-3">
+        <Input label={recurring ? 'Startdatum' : 'Datum'} type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1" />
+        <button
+          onClick={() => setRecurring(r => !r)}
+          className={`mt-5 text-xs px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${recurring ? 'bg-teal-500/20 text-teal-400' : 'text-slate-400 hover:text-white glass'}`}
+        >
+          Serientermin
+        </button>
+      </div>
+
+      {recurring && (
+        <div className="glass rounded-xl p-3 space-y-3">
+          <div>
+            <p className="text-xs text-slate-500 mb-2">Wochentage</p>
+            <div className="flex gap-1.5">
+              {DOW_LABELS.map(([day, label]) => (
+                <button
+                  key={day}
+                  onClick={() => setRecurDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day])}
+                  className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${recurDays.includes(day) ? 'bg-teal-500 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Input label="Enddatum" type="date" value={recurUntil} onChange={e => setRecurUntil(e.target.value)} />
+          {recurDays.length > 0 && recurUntil && (
+            <p className="text-xs text-slate-500">
+              {generateDates(date, recurUntil, recurDays).length} Termine werden erstellt
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Input label="Startzeit" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
@@ -210,7 +269,10 @@ export function SessionEditor({ groups, blocks, onSaved, onClose }: SessionEdito
       </div>
 
       <Button onClick={handleSave} loading={saving} className="w-full">
-        <Check size={16} className="mr-2" /> Session erstellen
+        <Check size={16} className="mr-2" />
+        {recurring && recurDays.length > 0 && recurUntil
+          ? `${generateDates(date, recurUntil, recurDays).length} Sessions erstellen`
+          : 'Session erstellen'}
       </Button>
     </div>
   )

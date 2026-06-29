@@ -191,7 +191,7 @@ sessionsRouter.patch('/:id', requireAuth(['admin', 'trainer']), async (req, res)
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
-sessionsRouter.delete('/:id', requireAuth(['admin']), async (req, res) => {
+sessionsRouter.delete('/:id', requireAuth(['admin', 'trainer']), async (req, res) => {
   try {
     await pool.query('DELETE FROM training_sessions WHERE id = $1', [req.params.id])
     res.json(ok(null))
