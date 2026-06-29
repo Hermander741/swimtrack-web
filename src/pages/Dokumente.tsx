@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Eye, Download, X as XIcon } from 'lucide-react'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Modal } from '../components/ui/Modal'
@@ -69,18 +70,31 @@ export function Dokumente() {
     if (res.ok) setDocs(prev => prev.filter(d => d.id !== id))
   }
 
-  function downloadDoc(doc: Document) {
-    const url = documentFileUrl(doc.id)
+  async function fetchBlob(doc: Document): Promise<Blob | null> {
     const token = getAccessToken()
-    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(r => r.blob())
-      .then(blob => {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = doc.name + '.pdf'
-        a.click()
-        URL.revokeObjectURL(a.href)
-      })
+    const r = await fetch(documentFileUrl(doc.id), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!r.ok) return null
+    return r.blob()
+  }
+
+  async function openDoc(doc: Document) {
+    const blob = await fetchBlob(doc)
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
+
+  async function downloadDoc(doc: Document) {
+    const blob = await fetchBlob(doc)
+    if (!blob) return
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = doc.name + '.pdf'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
   }
 
   return (
@@ -127,19 +141,28 @@ export function Dokumente() {
                     {formatBytes(doc.size_bytes)} · {new Date(doc.created_at).toLocaleDateString('de-AT')}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => openDoc(doc)}
+                    className="w-9 h-9 glass rounded-lg flex items-center justify-center text-teal-400 active:scale-95 transition-transform"
+                    aria-label="Öffnen"
+                  >
+                    <Eye size={16} />
+                  </button>
                   <button
                     onClick={() => downloadDoc(doc)}
-                    className="w-8 h-8 glass rounded-lg flex items-center justify-center text-teal-400 active:scale-95 transition-transform"
+                    className="w-9 h-9 glass rounded-lg flex items-center justify-center text-slate-400 active:scale-95 transition-transform"
+                    aria-label="Herunterladen"
                   >
-                    ↓
+                    <Download size={16} />
                   </button>
                   {(isAdmin || (isTrainer && doc.uploaded_by === user?.id)) && (
                     <button
                       onClick={() => handleDelete(doc.id, doc.name)}
-                      className="w-8 h-8 glass rounded-lg flex items-center justify-center text-red-400 active:scale-95 transition-transform"
+                      className="w-9 h-9 glass rounded-lg flex items-center justify-center text-red-400 active:scale-95 transition-transform"
+                      aria-label="Löschen"
                     >
-                      ✕
+                      <XIcon size={16} />
                     </button>
                   )}
                 </div>
