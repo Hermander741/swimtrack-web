@@ -242,6 +242,57 @@ zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
   }
 })
 
+// POST /api/zeiten/external-bestzeiten — Bestzeiten für beliebige Person von myresults scrapen (kein DB-Speichern)
+const externalCache = new Map<string, { ts: number; data: { event: string; course: string; time_ms: number }[] }>()
+const CACHE_TTL = 10 * 60 * 1000
+
+zeitenRouter.post('/external-bestzeiten', requireAuth(), async (req, res) => {
+  const { myresults_name } = req.body as { myresults_name?: string }
+  if (!myresults_name?.trim()) { res.status(400).json(err('myresults_name erforderlich')); return }
+
+  const key = myresults_name.trim().toLowerCase()
+  const cached = externalCache.get(key)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) { res.json(ok(cached.data)); return }
+
+  const nameLower = key
+  const nameParts = nameLower.split(/\s+/)
+
+  try {
+    const meets = await scrapeMeetList('Recent')
+    const best = new Map<string, number>() // "event|course" → best time_ms
+
+    await Promise.allSettled(meets.map(async (meet) => {
+      let events: Awaited<ReturnType<typeof scrapeEventList>> = []
+      try { events = await scrapeEventList(meet.id, 'Recent') } catch { return }
+
+      for (const event of events) {
+        const canonical = normalizeEventName(event.name)
+        if (!(SWIM_EVENTS as readonly string[]).includes(canonical)) continue
+
+        let rows: Awaited<ReturnType<typeof scrapeResultTable>> = []
+        try { rows = await scrapeResultTable(meet.id, event.id, 'Recent') } catch { continue }
+
+        for (const row of rows) {
+          const rowLower = row.name.toLowerCase()
+          const nameMatch = rowLower.includes(nameLower) || nameParts.every(p => rowLower.includes(p))
+          if (!nameMatch || row.timeMs <= 0) continue
+          const mapKey = `${canonical}|${meet.course}`
+          if (!best.has(mapKey) || row.timeMs < best.get(mapKey)!) best.set(mapKey, row.timeMs)
+        }
+      }
+    }))
+
+    const data = Array.from(best.entries()).map(([k, time_ms]) => {
+      const [event, course] = k.split('|')
+      return { event, course, time_ms }
+    })
+    externalCache.set(key, { ts: Date.now(), data })
+    res.json(ok(data))
+  } catch (e) {
+    res.status(502).json(err(e instanceof Error ? e.message : 'Scrape fehlgeschlagen'))
+  }
+})
+
 // DELETE /api/zeiten/:id
 zeitenRouter.delete('/:id', requireAuth(), async (req, res) => {
   const { id } = req.params

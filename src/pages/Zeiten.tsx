@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
-import { listBestzeiten, listEvents, listZeiten, createZeit, updateZeit, deleteZeit, syncMyresults } from '../api/zeiten'
+import { listBestzeiten, listEvents, listZeiten, createZeit, updateZeit, deleteZeit, syncMyresults, fetchExternalBestzeiten } from '../api/zeiten'
 import { listUsers } from '../api/users'
 import { formatTime, parseTimeInput } from '../utils/format'
 import type { SwimTimeEntry, MeetSummary, LiveResult, SwimResult } from '../types'
@@ -189,13 +189,26 @@ function BestzetenTab() {
   )
 }
 
+interface ExternalSwimmer {
+  id: string // synthetic key = myresults_name
+  name: string
+  times: { event: string; course: string; time_ms: number }[]
+}
+
 function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: string[] }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selCourse, setSelCourse] = useState<'LB' | 'KB' | 'OW'>('LB')
+  const [externals, setExternals] = useState<ExternalSwimmer[]>([])
+  const [extInput, setExtInput] = useState('')
+  const [extLoading, setExtLoading] = useState(false)
+  const [extError, setExtError] = useState('')
 
-  const userMap = new Map<string, { name: string; color: string; imageUrl?: string }>()
+  const userMap = new Map<string, { name: string; color: string; imageUrl?: string; isExternal?: boolean }>()
   allPbs.forEach(t => {
     if (!userMap.has(t.user_id)) userMap.set(t.user_id, { name: t.user_name, color: t.avatar_color, imageUrl: t.avatar_url })
+  })
+  externals.forEach(e => {
+    userMap.set(e.id, { name: e.name, color: '#64748b', isExternal: true })
   })
   const allUsers = Array.from(userMap.entries()).sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'))
 
@@ -204,19 +217,41 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
 
   const selected = selectedIds.filter(id => userMap.has(id))
 
+  async function addExternal(e: React.FormEvent) {
+    e.preventDefault()
+    const name = extInput.trim()
+    if (!name) return
+    const key = `ext:${name.toLowerCase()}`
+    if (userMap.has(key)) { toggle(key); setExtInput(''); return }
+    setExtError(''); setExtLoading(true)
+    const res = await fetchExternalBestzeiten(name)
+    setExtLoading(false)
+    if (!res.ok) { setExtError(res.error); return }
+    if (res.data.length === 0) { setExtError('Keine Zeiten gefunden'); return }
+    setExternals(prev => [...prev.filter(x => x.id !== key), { id: key, name, times: res.data }])
+    setSelectedIds(prev => [...prev.filter(x => x !== key), key])
+    setExtInput('')
+  }
+
+  function getTime(id: string, ev: string, course: string) {
+    if (id.startsWith('ext:')) {
+      const ext = externals.find(x => x.id === id)
+      return ext?.times.find(t => t.event === ev && t.course === course)?.time_ms ?? null
+    }
+    return allPbs.find(t => t.user_id === id && t.event === ev && t.course === course)?.time_ms ?? null
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-xs text-slate-500 mb-2">Schwimmer wählen</p>
+        <p className="text-xs text-slate-500 mb-2">Mitglieder</p>
         <div className="flex flex-wrap gap-2">
-          {allUsers.map(([id, u]) => (
+          {allUsers.filter(([, u]) => !u.isExternal).map(([id, u]) => (
             <button
               key={id}
               onClick={() => toggle(id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                selectedIds.includes(id)
-                  ? 'text-white'
-                  : 'bg-white/5 text-slate-400 hover:text-white'
+                selectedIds.includes(id) ? 'text-white' : 'bg-white/5 text-slate-400 hover:text-white'
               }`}
               style={selectedIds.includes(id) ? { backgroundColor: u.color } : undefined}
             >
@@ -225,6 +260,45 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Externer Schwimmer (myresults-Name)</p>
+        <form onSubmit={addExternal} className="flex gap-2">
+          <input
+            value={extInput}
+            onChange={e => setExtInput(e.target.value)}
+            placeholder="z.B. URBAN Herman"
+            className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-teal-500 placeholder-slate-600"
+          />
+          <button
+            type="submit"
+            disabled={extLoading || !extInput.trim()}
+            className="px-3 py-2 bg-teal-500 text-white rounded-xl text-xs font-medium disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+          >
+            {extLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <UserIcon size={14} />}
+            {extLoading ? 'Suche…' : 'Hinzufügen'}
+          </button>
+        </form>
+        {extError && <p className="text-red-400 text-xs mt-1">{extError}</p>}
+        {externals.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {externals.map(ext => (
+              <button
+                key={ext.id}
+                onClick={() => toggle(ext.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  selectedIds.includes(ext.id)
+                    ? 'bg-slate-500 text-white border-slate-400'
+                    : 'bg-white/5 text-slate-400 hover:text-white border-slate-700/50'
+                }`}
+              >
+                <UserIcon size={12} />
+                {ext.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {selected.length > 0 && (
@@ -251,19 +325,17 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
               </thead>
               <tbody className="divide-y divide-white/5">
                 {events.map(ev => {
-                  const cells = selected.map(id =>
-                    allPbs.find(t => t.user_id === id && t.event === ev && t.course === selCourse),
-                  )
-                  if (cells.every(c => !c)) return null
-                  const fastest = Math.min(...cells.filter(Boolean).map(c => c!.time_ms))
+                  const cells = selected.map(id => getTime(id, ev, selCourse))
+                  if (cells.every(c => c === null)) return null
+                  const fastest = Math.min(...cells.filter((c): c is number => c !== null))
                   return (
                     <tr key={ev}>
                       <td className="text-slate-400 py-2 pr-3 whitespace-nowrap">{ev}</td>
-                      {cells.map((cell, i) => (
+                      {cells.map((ms, i) => (
                         <td key={i} className={`text-center py-2 px-2 font-mono font-bold ${
-                          cell && cell.time_ms === fastest ? 'text-teal-400' : 'text-white'
+                          ms !== null && ms === fastest ? 'text-teal-400' : 'text-white'
                         }`}>
-                          {cell ? formatTime(cell.time_ms) : <span className="text-slate-700">—</span>}
+                          {ms !== null ? formatTime(ms) : <span className="text-slate-700">—</span>}
                         </td>
                       ))}
                     </tr>
