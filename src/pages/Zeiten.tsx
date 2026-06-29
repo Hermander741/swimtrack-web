@@ -310,18 +310,29 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
         {externals.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {externals.map(ext => (
-              <button
-                key={ext.id}
-                onClick={() => toggle(ext.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                  selectedIds.includes(ext.id)
-                    ? 'bg-slate-500 text-white border-slate-400'
-                    : 'bg-white/5 text-slate-400 hover:text-white border-slate-700/50'
-                }`}
-              >
-                <UserIcon size={12} />
-                {ext.name}
-              </button>
+              <div key={ext.id} className={`flex items-center rounded-full text-xs font-medium border ${
+                selectedIds.includes(ext.id)
+                  ? 'bg-slate-500 text-white border-slate-400'
+                  : 'bg-white/5 text-slate-400 border-slate-700/50'
+              }`}>
+                <button
+                  onClick={() => toggle(ext.id)}
+                  className="flex items-center gap-1.5 pl-3 pr-2 py-1.5"
+                >
+                  <UserIcon size={12} />
+                  {ext.name}
+                </button>
+                <button
+                  onClick={() => {
+                    setExternals(prev => prev.filter(x => x.id !== ext.id))
+                    setSelectedIds(prev => prev.filter(x => x !== ext.id))
+                  }}
+                  className="pr-2.5 pl-0.5 py-1.5 opacity-60 hover:opacity-100"
+                  aria-label="Entfernen"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
         )}
