@@ -14,25 +14,29 @@ import { Zeiten } from './pages/Zeiten'
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
     <div
-      className="fixed inset-0 bg-ocean-950 flex items-center justify-center z-50 transition-opacity duration-500"
-      style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
+      className="fixed inset-0 bg-ocean-950 flex items-center justify-center z-50"
+      style={{ opacity: visible ? 1 : 0, transition: 'opacity 900ms ease-in-out', pointerEvents: visible ? 'auto' : 'none' }}
     >
       <img src="/icon.svg" alt="Mermaids" className="w-36 h-36 rounded-3xl shadow-2xl shadow-teal-500/20" />
     </div>
   )
 }
 
+const SPLASH_MIN_MS = 1800
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const [splashVisible, setSplashVisible] = useState(true)
+  const mountTime = useState(() => Date.now())[0]
 
   useEffect(() => {
     if (!loading) {
-      // Keep splash for at least 1.2s total, then fade
-      const t = setTimeout(() => setSplashVisible(false), 400)
+      const elapsed = Date.now() - mountTime
+      const delay = Math.max(0, SPLASH_MIN_MS - elapsed)
+      const t = setTimeout(() => setSplashVisible(false), delay)
       return () => clearTimeout(t)
     }
-  }, [loading])
+  }, [loading, mountTime])
 
   if (loading || splashVisible) {
     return <SplashScreen visible={splashVisible} />
