@@ -73,8 +73,8 @@ export function Chat() {
   }
 
   return (
-    <PageShell title="Chat">
-      <div className="flex -mx-4 -mt-4" style={{ height: 'calc(100% - 4rem)' }}>
+    <PageShell title="Chat" fullHeight>
+      <div className="flex flex-1 min-h-0 pb-24">
         {/* Channel sidebar */}
         <div className={`w-full md:w-72 md:block border-r border-white/10 ${activeChannelId ? 'hidden md:block' : 'block'}`}>
           <ChannelList

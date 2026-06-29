@@ -7,13 +7,17 @@ interface PageShellProps {
   topBarRight?: React.ReactNode
   fab?: React.ReactNode
   children: React.ReactNode
+  fullHeight?: boolean
 }
 
-export function PageShell({ title, topBarRight, fab, children }: PageShellProps) {
+export function PageShell({ title, topBarRight, fab, children, fullHeight }: PageShellProps) {
   return (
     <div className="min-h-dvh bg-ocean-950 flex flex-col">
       <TopBar title={title} right={topBarRight} />
-      <main className="flex-1 overflow-y-auto scrollbar-none pb-24 px-4 pt-4">
+      <main className={fullHeight
+        ? 'flex-1 flex flex-col overflow-hidden'
+        : 'flex-1 overflow-y-auto scrollbar-none pb-24 px-4 pt-4'
+      }>
         {children}
       </main>
       {fab && (
