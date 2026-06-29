@@ -37,7 +37,7 @@ export function WeekView({ weekStart, sessions, onSelect, onPrev, onNext, onToda
           {days.map((day, i) => {
             const isToday = isSameDay(day, today)
             const daySessions = sessions.filter(s => {
-              const d = new Date(s.date + 'T00:00:00')
+              const d = new Date(s.date.slice(0, 10) + 'T00:00:00')
               return isSameDay(d, day)
             })
             return (

@@ -17,6 +17,7 @@ import { zeitenRouter } from './routes/zeiten'
 
 export function createApp() {
   const app = express()
+  app.set('trust proxy', 1)
   const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173').split(',')
 
   app.use(cors({

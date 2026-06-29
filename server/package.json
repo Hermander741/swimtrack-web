@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/db/migrations/*.sql dist/db/migrations/",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
