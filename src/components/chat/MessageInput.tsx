@@ -75,6 +75,8 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
           : p,
       ))
     }
+    // iOS scrollt beim Foto-Picker weg — Textarea fokussieren bringt sie zurück
+    setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
   function removeAttachment(file: File) {
