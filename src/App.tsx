@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import { Login } from './pages/Login'
@@ -10,14 +11,31 @@ import { Chat } from './pages/Chat'
 import { Training } from './pages/Training'
 import { Zeiten } from './pages/Zeiten'
 
+function SplashScreen({ visible }: { visible: boolean }) {
+  return (
+    <div
+      className="fixed inset-0 bg-ocean-950 flex items-center justify-center z-50 transition-opacity duration-500"
+      style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none' }}
+    >
+      <img src="/icon.svg" alt="Mermaids" className="w-36 h-36 rounded-3xl shadow-2xl shadow-teal-500/20" />
+    </div>
+  )
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  if (loading) {
-    return (
-      <div className="min-h-dvh bg-ocean-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+  const [splashVisible, setSplashVisible] = useState(true)
+
+  useEffect(() => {
+    if (!loading) {
+      // Keep splash for at least 1.2s total, then fade
+      const t = setTimeout(() => setSplashVisible(false), 400)
+      return () => clearTimeout(t)
+    }
+  }, [loading])
+
+  if (loading || splashVisible) {
+    return <SplashScreen visible={splashVisible} />
   }
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
