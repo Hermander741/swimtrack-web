@@ -31,6 +31,7 @@ export function Profil() {
   const [myresultsSaving, setMyresultsSaving] = useState(false)
   const [myresultsSaved, setMyresultsSaved] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -100,10 +101,13 @@ export function Profil() {
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setAvatarError('')
     setAvatarUploading(true)
     const res = await uploadAvatar(file)
     if (res.ok) setUser(res.data)
+    else setAvatarError(res.error ?? 'Upload fehlgeschlagen')
     setAvatarUploading(false)
+    e.target.value = ''
   }
 
   async function handleSaveMyresults() {
@@ -134,6 +138,7 @@ export function Profil() {
         </button>
         <h2 className="text-xl font-bold text-white mt-3">{user.name}</h2>
         <p className="text-slate-400 text-sm mt-1">{user.email}</p>
+        {avatarError && <p className="text-red-400 text-xs mt-1">{avatarError}</p>}
         <div className="mt-2">
           <Badge role={user.role} />
         </div>
