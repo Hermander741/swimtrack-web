@@ -281,14 +281,20 @@ zeitenRouter.post('/external-bestzeiten', requireAuth(), async (req, res) => {
     await syncNewMeets()
 
     const nameLower = myresults_name.trim().toLowerCase()
-    const { rows } = await pool.query<{ event_name: string; course: string; time_ms: number }>(`
-      SELECT event_name, course, MIN(time_ms) AS time_ms
+    const { rows } = await pool.query<{
+      event_name: string; course: string; time_ms: number; meet_date: string; meet_name: string
+    }>(`
+      SELECT DISTINCT ON (event_name, course)
+        event_name, course, time_ms, meet_date::text AS meet_date, meet_name
       FROM meet_results
       WHERE LOWER(swimmer_name) LIKE $1
-      GROUP BY event_name, course
+      ORDER BY event_name, course, time_ms ASC
     `, [`%${nameLower}%`])
 
-    const data = rows.map(r => ({ event: r.event_name, course: r.course, time_ms: Number(r.time_ms) }))
+    const data = rows.map(r => ({
+      event: r.event_name, course: r.course, time_ms: Number(r.time_ms),
+      meet_date: r.meet_date, meet_name: r.meet_name,
+    }))
     res.json(ok(data))
   } catch (e) {
     res.status(502).json(err(e instanceof Error ? e.message : 'Scrape fehlgeschlagen'))

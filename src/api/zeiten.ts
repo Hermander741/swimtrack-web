@@ -38,6 +38,6 @@ export const syncMyresults = () =>
   )
 
 export const fetchExternalBestzeiten = (myresults_name: string) =>
-  apiRequest<{ event: string; course: string; time_ms: number }[]>(
+  apiRequest<{ event: string; course: string; time_ms: number; meet_date: string; meet_name: string }[]>(
     '/api/zeiten/external-bestzeiten', { method: 'POST', body: JSON.stringify({ myresults_name }) },
   )

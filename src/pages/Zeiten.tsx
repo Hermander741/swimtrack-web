@@ -190,9 +190,15 @@ function BestzetenTab() {
 }
 
 interface ExternalSwimmer {
-  id: string // synthetic key = myresults_name
+  id: string
   name: string
-  times: { event: string; course: string; time_ms: number }[]
+  times: { event: string; course: string; time_ms: number; meet_date?: string; meet_name?: string }[]
+}
+
+interface TimeDetail {
+  time_ms: number
+  date?: string
+  competition?: string
 }
 
 function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: string[] }) {
@@ -233,12 +239,16 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
     setExtInput('')
   }
 
-  function getTime(id: string, ev: string, course: string) {
+  function getDetail(id: string, ev: string, course: string): TimeDetail | null {
     if (id.startsWith('ext:')) {
       const ext = externals.find(x => x.id === id)
-      return ext?.times.find(t => t.event === ev && t.course === course)?.time_ms ?? null
+      const t = ext?.times.find(t => t.event === ev && t.course === course)
+      if (!t) return null
+      return { time_ms: t.time_ms, date: t.meet_date, competition: t.meet_name }
     }
-    return allPbs.find(t => t.user_id === id && t.event === ev && t.course === course)?.time_ms ?? null
+    const pb = allPbs.find(t => t.user_id === id && t.event === ev && t.course === course)
+    if (!pb) return null
+    return { time_ms: pb.time_ms, date: pb.date, competition: pb.competition ?? undefined }
   }
 
   return (
@@ -311,45 +321,109 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
               </button>
             ))}
           </div>
-          <div className="overflow-x-auto -mx-4 px-4">
-            <table className="w-full text-xs min-w-[320px]">
-              <thead>
-                <tr>
-                  <th className="text-left text-slate-500 font-medium pb-2 pr-3">Disziplin</th>
-                  {selected.map(id => (
-                    <th key={id} className="text-center text-slate-300 font-medium pb-2 px-2 whitespace-nowrap">
-                      {userMap.get(id)!.name.split(' ')[0]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {events.map(ev => {
-                  const cells = selected.map(id => getTime(id, ev, selCourse))
-                  if (cells.every(c => c === null)) return null
-                  const fastest = Math.min(...cells.filter((c): c is number => c !== null))
-                  return (
-                    <tr key={ev}>
-                      <td className="text-slate-400 py-2 pr-3 whitespace-nowrap">{ev}</td>
-                      {cells.map((ms, i) => (
-                        <td key={i} className={`text-center py-2 px-2 font-mono font-bold ${
-                          ms !== null && ms === fastest ? 'text-teal-400' : 'text-white'
-                        }`}>
-                          {ms !== null ? formatTime(ms) : <span className="text-slate-700">—</span>}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <VergleichTabelle
+            events={events}
+            selected={selected}
+            selCourse={selCourse}
+            userMap={userMap}
+            getDetail={getDetail}
+          />
         </>
       )}
 
       {selected.length === 0 && (
         <p className="text-slate-600 text-sm text-center py-8">Wähle Schwimmer zum Vergleichen</p>
       )}
+    </div>
+  )
+}
+
+function VergleichTabelle({
+  events, selected, selCourse, userMap, getDetail,
+}: {
+  events: string[]
+  selected: string[]
+  selCourse: string
+  userMap: Map<string, { name: string; color: string; imageUrl?: string; isExternal?: boolean }>
+  getDetail: (id: string, ev: string, course: string) => TimeDetail | null
+}) {
+  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
+  function fmtDate(d?: string) {
+    if (!d) return ''
+    return new Date(d).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  }
+
+  const rows = events.flatMap(ev => {
+    const details = selected.map(id => getDetail(id, ev, selCourse))
+    if (details.every(d => d === null)) return []
+    const times = details.filter((d): d is TimeDetail => d !== null).map(d => d.time_ms)
+    const fastest = Math.min(...times)
+    return [{ ev, details, fastest }]
+  })
+
+  return (
+    <div className="space-y-1">
+      {/* Header */}
+      <div className="flex items-center px-1 pb-1 border-b border-white/10">
+        <div className="flex-1 text-xs text-slate-500 font-medium">Disziplin</div>
+        {selected.map(id => (
+          <div key={id} className="w-16 text-center text-xs text-slate-400 font-medium truncate px-1">
+            {userMap.get(id)!.name.split(' ')[0]}
+          </div>
+        ))}
+        <div className="w-5" />
+      </div>
+
+      {rows.map(({ ev, details, fastest }) => {
+        const isOpen = expandedRow === ev
+        return (
+          <div key={ev}>
+            <button
+              className="w-full flex items-center px-1 py-2.5 rounded-lg active:bg-white/5 transition-colors"
+              onClick={() => setExpandedRow(isOpen ? null : ev)}
+            >
+              <div className="flex-1 text-left text-xs text-slate-300 font-medium">{ev}</div>
+              {details.map((d, i) => (
+                <div key={i} className={`w-16 text-center text-xs font-mono font-bold px-1 ${
+                  d && d.time_ms === fastest ? 'text-teal-400' : 'text-white'
+                }`}>
+                  {d ? formatTime(d.time_ms) : <span className="text-slate-700">—</span>}
+                </div>
+              ))}
+              <div className="w-5 text-slate-600 text-xs">{isOpen ? '▲' : '▼'}</div>
+            </button>
+
+            {isOpen && (
+              <div className="mx-1 mb-2 rounded-xl bg-white/5 divide-y divide-white/5 overflow-hidden">
+                {details.map((d, i) => {
+                  const u = userMap.get(selected[i])!
+                  return (
+                    <div key={i} className="flex items-start gap-3 px-3 py-2.5">
+                      <Avatar name={u.name} color={u.color} imageUrl={u.imageUrl} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-slate-400 font-medium truncate">{u.name}</p>
+                        {d ? (
+                          <>
+                            <p className={`text-sm font-mono font-bold ${d.time_ms === fastest ? 'text-teal-400' : 'text-white'}`}>
+                              {formatTime(d.time_ms)}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">
+                              {[d.competition, fmtDate(d.date)].filter(Boolean).join(' · ')}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-700">Keine Zeit</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
