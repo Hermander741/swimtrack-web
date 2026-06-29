@@ -31,3 +31,8 @@ export const updateZeit = (id: string, data: {
 
 export const deleteZeit = (id: string) =>
   apiRequest<null>(`/api/zeiten/${id}`, { method: 'DELETE' })
+
+export const syncMyresults = () =>
+  apiRequest<{ imported: number; total_found: number; meets_searched: number }>(
+    '/api/zeiten/myresults-sync', { method: 'POST' },
+  )

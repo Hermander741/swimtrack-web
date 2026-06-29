@@ -18,10 +18,9 @@ swimmerRouter.get('/results', async (req, res) => {
 
   try {
     const recentMeets = await scrapeMeetList('Recent')
-    const meetsToSearch = recentMeets.slice(0, 5)
     const swimmerResults: SwimmerResult[] = []
 
-    await Promise.all(meetsToSearch.map(async (meet) => {
+    await Promise.all(recentMeets.map(async (meet) => {
       const events = await scrapeEventList(meet.id, 'Recent')
       const meetResults: SwimmerResult[] = []
       for (const event of events) {

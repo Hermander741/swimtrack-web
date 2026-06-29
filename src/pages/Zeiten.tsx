@@ -4,10 +4,10 @@ import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
-import { listBestzeiten, listEvents, listZeiten, createZeit, updateZeit, deleteZeit } from '../api/zeiten'
+import { listBestzeiten, listEvents, listZeiten, createZeit, updateZeit, deleteZeit, syncMyresults } from '../api/zeiten'
 import { listUsers } from '../api/users'
 import { formatTime, parseTimeInput } from '../utils/format'
-import type { SwimTimeEntry, MeetSummary, SwimmerResult, LiveResult, SwimResult } from '../types'
+import type { SwimTimeEntry, MeetSummary, LiveResult, SwimResult } from '../types'
 import { apiRequest } from '../api/client'
 
 type OuterTab = 'bestzeiten' | 'meine' | 'wettkampf' | 'live'
@@ -562,42 +562,11 @@ function WettkämpfeInner() {
 
 function MeinSchwimmerInner() {
   const { user } = useAuth()
-  const [results, setResults]   = useState<SwimmerResult[]>([])
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
-  const [imported, setImported] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const [result, setResult]   = useState<{ imported: number; total_found: number; meets_searched: number } | null>(null)
 
-  const searchName = user?.myresults_name ?? (user?.name.toUpperCase() ?? '')
-
-  const load = async () => {
-    if (!user) return
-    setLoading(true); setError('')
-    const params = new URLSearchParams({ name: searchName })
-    const res = await apiRequest<SwimmerResult[]>(`/api/swimmer/results?${params}`)
-    if (res.ok) setResults(res.data)
-    else setError(res.error)
-    setLoading(false)
-  }
-
-  useEffect(() => { load() }, [user?.id])
-
-  async function importResult(r: SwimmerResult) {
-    if (!user) return
-    const eventName = normalizeEventName(r.eventName)
-    const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
-    const res = await createZeit({
-      event: eventName, course: r.course,
-      time_ms: r.result.timeMs, date: r.meetDate, competition: r.meetName,
-    })
-    if (res.ok) setImported(prev => new Set([...prev, key]))
-  }
-
-  async function importAll() {
-    const pending = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}-${r.result.timeMs}`))
-    await Promise.allSettled(pending.map(r => importResult(r)))
-  }
-
-  if (!user?.myresults_name && searchName === user?.name.toUpperCase()) {
+  if (!user?.myresults_name) {
     return (
       <div className="text-center py-12">
         <UserIcon size={36} className="mx-auto mb-3 text-slate-700" />
@@ -607,58 +576,47 @@ function MeinSchwimmerInner() {
     )
   }
 
-  const notYetImported = results.filter(r => !imported.has(`${r.meetDate}-${r.eventId}-${r.result.timeMs}`))
+  async function handleSync() {
+    setLoading(true); setError(''); setResult(null)
+    const res = await syncMyresults()
+    if (res.ok) setResult(res.data)
+    else setError(res.error)
+    setLoading(false)
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <Card className="p-4 space-y-3">
         <div>
-          <p className="text-slate-500 text-xs">Suche: <span className="text-slate-300">{searchName}</span></p>
-          <p className="text-slate-600 text-xs">Letzte 5 Wettkämpfe</p>
+          <p className="text-white text-sm font-medium">Wettkampfzeiten importieren</p>
+          <p className="text-slate-500 text-xs mt-1">
+            Sucht alle Ergebnisse für <span className="text-slate-300">{user.myresults_name}</span> auf
+            myresults.eu und speichert neue Zeiten automatisch.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {notYetImported.length > 0 && (
-            <button onClick={importAll} className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
-              <Download size={12} /> Alle ({notYetImported.length})
-            </button>
-          )}
-          <button onClick={load} disabled={loading} className="text-slate-500 hover:text-white p-1">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
-      {error && <p className="text-rose-400 text-sm text-center py-4">{error}</p>}
-      {loading && !results.length && (
-        <p className="text-slate-500 text-sm text-center py-8 animate-pulse">Ergebnisse werden gesucht…</p>
-      )}
-      {!loading && results.length === 0 && !error && (
-        <p className="text-slate-600 text-sm text-center py-8">Keine Ergebnisse gefunden</p>
-      )}
-      {results.map(r => {
-        const key = `${r.meetDate}-${r.eventId}-${r.result.timeMs}`
-        const isImported = imported.has(key)
-        return (
-          <Card key={key} className="flex items-center gap-3 px-4 py-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium">{normalizeEventName(r.eventName)}</p>
-              <p className="text-slate-500 text-xs">{r.meetName}</p>
-              <p className="text-slate-600 text-xs">{r.meetDate} · Platz {r.result.rank}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <p className="font-mono text-white font-bold text-sm">
-                {r.result.timeMs > 0 ? formatTime(r.result.timeMs) : '—'}
-              </p>
-              <button
-                onClick={() => importResult(r)}
-                disabled={isImported}
-                className={`p-2 rounded-xl transition-colors ${isImported ? 'text-emerald-400 bg-emerald-400/10' : 'text-slate-400 hover:text-sky-400 hover:bg-sky-400/10'}`}
-              >
-                {isImported ? <Check size={15} /> : <Download size={15} />}
-              </button>
-            </div>
-          </Card>
-        )
-      })}
+        <button
+          onClick={handleSync}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          {loading ? 'Wird synchronisiert…' : 'Jetzt synchronisieren'}
+        </button>
+        {error && <p className="text-rose-400 text-xs">{error}</p>}
+        {result && !loading && (
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 space-y-1">
+            <p className="text-emerald-400 text-sm font-medium flex items-center gap-2">
+              <Check size={14} /> Synchronisierung abgeschlossen
+            </p>
+            <p className="text-slate-400 text-xs">
+              {result.imported} neue Zeiten importiert · {result.total_found} gefunden · {result.meets_searched} Wettkämpfe durchsucht
+            </p>
+            {result.imported > 0 && (
+              <p className="text-slate-500 text-xs">Die neuen Zeiten sind jetzt im Tab "Meine Zeiten" sichtbar.</p>
+            )}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }

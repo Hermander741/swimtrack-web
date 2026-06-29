@@ -4,6 +4,15 @@ import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import { SWIM_EVENTS } from '../constants/swimEvents'
+import { scrapeMeetList } from '../scrapers/meetList'
+import { scrapeEventList } from '../scrapers/eventList'
+import { scrapeResultTable } from '../scrapers/resultTable'
+
+function normalizeEventName(raw: string): string {
+  return raw
+    .replace(/\s+(Damen|Herren|Mixed|gemischt|Frauen|Männer)$/i, '')
+    .trim()
+}
 
 interface SwimTimeEntry {
   id: string; user_id: string; user_name: string; avatar_color: string
@@ -175,6 +184,62 @@ zeitenRouter.patch('/:id', requireAuth(), async (req, res) => {
     const entry = await fetchZeit(updatedId)
     res.json(ok(entry))
   } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
+// POST /api/zeiten/myresults-sync — importiert alle Wettkampfzeiten der letzten Saison
+zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
+  const user = req.user!
+  if (!user.myresults_name) {
+    res.status(400).json(err('Kein myresults.eu-Name im Profil hinterlegt'))
+    return
+  }
+
+  const nameLower = user.myresults_name.toLowerCase()
+  const nameParts = nameLower.split(' ').filter(Boolean)
+
+  try {
+    const meets = await scrapeMeetList('Recent')
+    let totalFound = 0
+    let imported = 0
+
+    for (const meet of meets) {
+      let events: Awaited<ReturnType<typeof scrapeEventList>> = []
+      try { events = await scrapeEventList(meet.id, 'Recent') } catch { continue }
+
+      for (const event of events) {
+        const canonical = normalizeEventName(event.name)
+        if (!(SWIM_EVENTS as readonly string[]).includes(canonical)) continue
+
+        let rows: Awaited<ReturnType<typeof scrapeResultTable>> = []
+        try { rows = await scrapeResultTable(meet.id, event.id, 'Recent') } catch { continue }
+
+        for (const row of rows) {
+          const rowLower = row.name.toLowerCase()
+          const nameMatch = rowLower.includes(nameLower)
+            || nameParts.every(part => rowLower.includes(part))
+          if (!nameMatch || row.timeMs <= 0) continue
+
+          totalFound++
+
+          const { rows: inserted } = await pool.query(`
+            INSERT INTO swim_times (user_id, event, course, time_ms, date, competition, created_by)
+            SELECT $1, $2, $3, $4, $5::date, $6, NULL
+            WHERE NOT EXISTS (
+              SELECT 1 FROM swim_times
+              WHERE user_id = $1 AND event = $2 AND course = $3 AND time_ms = $4 AND date = $5::date
+            )
+            RETURNING id
+          `, [user.id, canonical, meet.course, row.timeMs, meet.startDate, meet.name])
+
+          if (inserted.length > 0) imported++
+        }
+      }
+    }
+
+    res.json(ok({ imported, total_found: totalFound, meets_searched: meets.length }))
+  } catch (e) {
+    res.status(502).json(err(e instanceof Error ? e.message : 'Sync fehlgeschlagen'))
+  }
 })
 
 // DELETE /api/zeiten/:id
