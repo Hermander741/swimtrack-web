@@ -187,7 +187,48 @@ zeitenRouter.patch('/:id', requireAuth(), async (req, res) => {
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
-// POST /api/zeiten/myresults-sync — importiert alle Wettkampfzeiten der letzten Saison
+// ─── Meet-Cache-Infrastruktur ─────────────────────────────────────────────────
+
+async function syncNewMeets(): Promise<number> {
+  const meets = await scrapeMeetList('Recent')
+  const { rows: already } = await pool.query<{ meet_id: string }>(
+    'SELECT meet_id FROM scraped_meets',
+  )
+  const cachedIds = new Set(already.map(r => r.meet_id))
+  const newMeets = meets.filter(m => !cachedIds.has(m.id))
+  if (newMeets.length === 0) return 0
+
+  await Promise.allSettled(newMeets.map(async (meet) => {
+    let events: Awaited<ReturnType<typeof scrapeEventList>> = []
+    try { events = await scrapeEventList(meet.id, 'Recent') } catch { return }
+
+    for (const event of events) {
+      const canonical = normalizeEventName(event.name)
+      if (!(SWIM_EVENTS as readonly string[]).includes(canonical)) continue
+
+      let rows: Awaited<ReturnType<typeof scrapeResultTable>> = []
+      try { rows = await scrapeResultTable(meet.id, event.id, 'Recent') } catch { continue }
+
+      for (const row of rows) {
+        if (row.timeMs <= 0) continue
+        await pool.query(`
+          INSERT INTO meet_results (meet_id, event_name, course, swimmer_name, birth_year, club, time_ms, meet_date, meet_name)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::date, $9)
+          ON CONFLICT (meet_id, event_name, swimmer_name) DO NOTHING
+        `, [meet.id, canonical, meet.course, row.name, row.birthYear, row.club, row.timeMs, meet.startDate, meet.name])
+      }
+    }
+
+    await pool.query(
+      'INSERT INTO scraped_meets (meet_id) VALUES ($1) ON CONFLICT DO NOTHING',
+      [meet.id],
+    )
+  }))
+
+  return newMeets.length
+}
+
+// POST /api/zeiten/myresults-sync
 zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
   const user = req.user!
   if (!user.myresults_name) {
@@ -195,98 +236,59 @@ zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
     return
   }
 
-  const nameLower = user.myresults_name.toLowerCase()
-  const nameParts = nameLower.split(' ').filter(Boolean)
-
   try {
-    const meets = await scrapeMeetList('Recent')
-    const counters = { totalFound: 0, imported: 0 }
+    const newlyCached = await syncNewMeets()
 
-    await Promise.allSettled(meets.map(async (meet) => {
-      let events: Awaited<ReturnType<typeof scrapeEventList>> = []
-      try { events = await scrapeEventList(meet.id, 'Recent') } catch { return }
+    const nameLower = user.myresults_name.toLowerCase()
+    const { rows: found } = await pool.query<{
+      event_name: string; course: string; time_ms: number; meet_date: string; meet_name: string
+    }>(`
+      SELECT event_name, course, time_ms, meet_date::text AS meet_date, meet_name
+      FROM meet_results
+      WHERE LOWER(swimmer_name) = $1
+         OR LOWER(swimmer_name) LIKE $2
+    `, [nameLower, `%${nameLower}%`])
 
-      for (const event of events) {
-        const canonical = normalizeEventName(event.name)
-        if (!(SWIM_EVENTS as readonly string[]).includes(canonical)) continue
+    let imported = 0
+    for (const row of found) {
+      const { rows: inserted } = await pool.query(`
+        INSERT INTO swim_times (user_id, event, course, time_ms, date, competition, created_by)
+        SELECT $1, $2, $3, $4, $5::date, $6, NULL
+        WHERE NOT EXISTS (
+          SELECT 1 FROM swim_times
+          WHERE user_id = $1 AND event = $2 AND course = $3 AND time_ms = $4 AND date = $5::date
+        )
+        RETURNING id
+      `, [user.id, row.event_name, row.course, row.time_ms, row.meet_date, row.meet_name])
+      if (inserted.length > 0) imported++
+    }
 
-        let rows: Awaited<ReturnType<typeof scrapeResultTable>> = []
-        try { rows = await scrapeResultTable(meet.id, event.id, 'Recent') } catch { continue }
-
-        for (const row of rows) {
-          const rowLower = row.name.toLowerCase()
-          const nameMatch = rowLower.includes(nameLower)
-            || nameParts.every(part => rowLower.includes(part))
-          if (!nameMatch || row.timeMs <= 0) continue
-
-          counters.totalFound++
-
-          const { rows: inserted } = await pool.query(`
-            INSERT INTO swim_times (user_id, event, course, time_ms, date, competition, created_by)
-            SELECT $1, $2, $3, $4, $5::date, $6, NULL
-            WHERE NOT EXISTS (
-              SELECT 1 FROM swim_times
-              WHERE user_id = $1 AND event = $2 AND course = $3 AND time_ms = $4 AND date = $5::date
-            )
-            RETURNING id
-          `, [user.id, canonical, meet.course, row.timeMs, meet.startDate, meet.name])
-
-          if (inserted.length > 0) counters.imported++
-        }
-      }
-    }))
-
-    res.json(ok({ imported: counters.imported, total_found: counters.totalFound, meets_searched: meets.length }))
+    const { rows: [{ total }] } = await pool.query<{ total: string }>(
+      'SELECT COUNT(*) AS total FROM scraped_meets',
+    )
+    res.json(ok({ imported, total_found: found.length, meets_searched: parseInt(total), newly_cached: newlyCached }))
   } catch (e) {
     res.status(502).json(err(e instanceof Error ? e.message : 'Sync fehlgeschlagen'))
   }
 })
 
-// POST /api/zeiten/external-bestzeiten — Bestzeiten für beliebige Person von myresults scrapen (kein DB-Speichern)
-const externalCache = new Map<string, { ts: number; data: { event: string; course: string; time_ms: number }[] }>()
-const CACHE_TTL = 10 * 60 * 1000
-
+// POST /api/zeiten/external-bestzeiten
 zeitenRouter.post('/external-bestzeiten', requireAuth(), async (req, res) => {
   const { myresults_name } = req.body as { myresults_name?: string }
   if (!myresults_name?.trim()) { res.status(400).json(err('myresults_name erforderlich')); return }
 
-  const key = myresults_name.trim().toLowerCase()
-  const cached = externalCache.get(key)
-  if (cached && Date.now() - cached.ts < CACHE_TTL) { res.json(ok(cached.data)); return }
-
-  const nameLower = key
-  const nameParts = nameLower.split(/\s+/)
-
   try {
-    const meets = await scrapeMeetList('Recent')
-    const best = new Map<string, number>() // "event|course" → best time_ms
+    await syncNewMeets()
 
-    await Promise.allSettled(meets.map(async (meet) => {
-      let events: Awaited<ReturnType<typeof scrapeEventList>> = []
-      try { events = await scrapeEventList(meet.id, 'Recent') } catch { return }
+    const nameLower = myresults_name.trim().toLowerCase()
+    const { rows } = await pool.query<{ event_name: string; course: string; time_ms: number }>(`
+      SELECT event_name, course, MIN(time_ms) AS time_ms
+      FROM meet_results
+      WHERE LOWER(swimmer_name) LIKE $1
+      GROUP BY event_name, course
+    `, [`%${nameLower}%`])
 
-      for (const event of events) {
-        const canonical = normalizeEventName(event.name)
-        if (!(SWIM_EVENTS as readonly string[]).includes(canonical)) continue
-
-        let rows: Awaited<ReturnType<typeof scrapeResultTable>> = []
-        try { rows = await scrapeResultTable(meet.id, event.id, 'Recent') } catch { continue }
-
-        for (const row of rows) {
-          const rowLower = row.name.toLowerCase()
-          const nameMatch = rowLower.includes(nameLower) || nameParts.every(p => rowLower.includes(p))
-          if (!nameMatch || row.timeMs <= 0) continue
-          const mapKey = `${canonical}|${meet.course}`
-          if (!best.has(mapKey) || row.timeMs < best.get(mapKey)!) best.set(mapKey, row.timeMs)
-        }
-      }
-    }))
-
-    const data = Array.from(best.entries()).map(([k, time_ms]) => {
-      const [event, course] = k.split('|')
-      return { event, course, time_ms }
-    })
-    externalCache.set(key, { ts: Date.now(), data })
+    const data = rows.map(r => ({ event: r.event_name, course: r.course, time_ms: Number(r.time_ms) }))
     res.json(ok(data))
   } catch (e) {
     res.status(502).json(err(e instanceof Error ? e.message : 'Scrape fehlgeschlagen'))
