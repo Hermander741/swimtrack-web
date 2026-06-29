@@ -9,7 +9,7 @@ import type { User } from '../types'
 
 export const authRouter = Router()
 
-const loginLimiter = rateLimit({ windowMs: 60_000, max: 10 })
+const loginLimiter = rateLimit({ windowMs: 60_000, max: 10, validate: { xForwardedForHeader: false } })
 
 authRouter.post('/login', loginLimiter, async (req, res) => {
   try {
