@@ -238,15 +238,8 @@ chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
       }
       if (!req.file) { res.status(400).json(err('Keine Datei')); return }
 
-      // Magic-byte validation
-      const { fileTypeFromFile } = await import('file-type')
-      const detected = await fileTypeFromFile(req.file.path)
-      const allowed = Object.keys(SIZE_LIMITS)
-      if (!detected || !allowed.includes(detected.mime)) {
-        fs.unlinkSync(req.file.path)
-        res.status(400).json(err('Ungültiger Dateityp')); return
-      }
-      if (req.file.size > SIZE_LIMITS[detected.mime]) {
+      const mime = req.file.mimetype
+      if (req.file.size > (SIZE_LIMITS[mime] ?? 0)) {
         fs.unlinkSync(req.file.path)
         res.status(400).json(err('Datei zu groß')); return
       }
@@ -254,7 +247,7 @@ chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
       const { rows } = await pool.query<{ id: string }>(
         `INSERT INTO message_attachments (message_id, filename, original_name, mime_type, size_bytes)
          VALUES (NULL, $1, $2, $3, $4) RETURNING id`,
-        [req.file.filename, req.file.originalname, detected.mime, req.file.size],
+        [req.file.filename, req.file.originalname, mime, req.file.size],
       )
       res.status(201).json(ok({ attachmentId: rows[0].id }))
     } catch {
