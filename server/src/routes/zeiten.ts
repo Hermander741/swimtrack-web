@@ -199,12 +199,11 @@ zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
 
   try {
     const meets = await scrapeMeetList('Recent')
-    let totalFound = 0
-    let imported = 0
+    const counters = { totalFound: 0, imported: 0 }
 
-    for (const meet of meets) {
+    await Promise.allSettled(meets.map(async (meet) => {
       let events: Awaited<ReturnType<typeof scrapeEventList>> = []
-      try { events = await scrapeEventList(meet.id, 'Recent') } catch { continue }
+      try { events = await scrapeEventList(meet.id, 'Recent') } catch { return }
 
       for (const event of events) {
         const canonical = normalizeEventName(event.name)
@@ -219,7 +218,7 @@ zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
             || nameParts.every(part => rowLower.includes(part))
           if (!nameMatch || row.timeMs <= 0) continue
 
-          totalFound++
+          counters.totalFound++
 
           const { rows: inserted } = await pool.query(`
             INSERT INTO swim_times (user_id, event, course, time_ms, date, competition, created_by)
@@ -231,12 +230,12 @@ zeitenRouter.post('/myresults-sync', requireAuth(), async (req, res) => {
             RETURNING id
           `, [user.id, canonical, meet.course, row.timeMs, meet.startDate, meet.name])
 
-          if (inserted.length > 0) imported++
+          if (inserted.length > 0) counters.imported++
         }
       }
-    }
+    }))
 
-    res.json(ok({ imported, total_found: totalFound, meets_searched: meets.length }))
+    res.json(ok({ imported: counters.imported, total_found: counters.totalFound, meets_searched: meets.length }))
   } catch (e) {
     res.status(502).json(err(e instanceof Error ? e.message : 'Sync fehlgeschlagen'))
   }
