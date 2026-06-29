@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Camera } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Camera, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
@@ -16,7 +16,7 @@ import { Button } from '../components/ui/Button'
 const AVATAR_COLORS = ['#0EA5E9', '#14B8A6', '#8B5CF6', '#F59E0B', '#EF4444', '#10B981', '#EC4899', '#F97316']
 
 export function Profil() {
-  const { user, logout, setUser } = useAuth()
+  const { user, logout, setUser, isTrainer, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [newPassword, setNewPassword] = useState('')
@@ -162,6 +162,17 @@ export function Profil() {
           ))}
         </div>
       </Card>
+
+      {/* Admin / Trainer section */}
+      {(isAdmin || isTrainer) && (
+        <Card className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Administration</p>
+          <Link to="/mitglieder" className="flex items-center gap-3 py-2 text-white hover:text-teal-400 transition-colors">
+            <Users size={18} className="text-teal-400 shrink-0" />
+            <span className="text-sm font-medium">Mitglieder verwalten</span>
+          </Link>
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="space-y-3">
