@@ -77,7 +77,19 @@ export function Profil() {
 
   async function handleCopyIcal() {
     if (!icalToken) return
-    await navigator.clipboard.writeText(icalUrl(icalToken.token))
+    const url = icalUrl(icalToken.token)
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = url
+      Object.assign(ta.style, { position: 'fixed', opacity: '0', top: '0', left: '0' })
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
     setICalCopied(true)
     setTimeout(() => setICalCopied(false), 2000)
   }
