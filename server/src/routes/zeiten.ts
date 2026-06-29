@@ -10,6 +10,7 @@ import { scrapeResultTable } from '../scrapers/resultTable'
 
 function normalizeEventName(raw: string): string {
   return raw
+    .replace(/\s+MASTERS$/i, '')
     .replace(/\s+(Damen|Herren|Mixed|gemischt|Frauen|Männer)$/i, '')
     .trim()
 }

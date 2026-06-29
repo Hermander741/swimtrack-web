@@ -483,6 +483,7 @@ function MeineZeitenTab() {
 function normalizeEventName(raw: string): string {
   return raw
     .replace(/^\d+\s*-\s*/, '')
+    .replace(/\s+MASTERS$/i, '')
     .replace(/\s+(Damen|Herren|Mixed|gemischt|Frauen|Männer)$/i, '')
     .trim()
 }
