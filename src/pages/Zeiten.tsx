@@ -450,6 +450,8 @@ function MeineZeitenTab() {
     timeInput: '', date: new Date().toISOString().split('T')[0], competition: '',
   })
   const [timeError, setTimeError] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const LIMIT = 100
 
   // Events + Users einmalig laden
@@ -541,7 +543,6 @@ function MeineZeitenTab() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Zeit wirklich löschen?')) return
     const res = await deleteZeit(id)
     if (res.ok) {
       setTimes(prev => prev.filter(t => t.id !== id))
@@ -662,36 +663,63 @@ function MeineZeitenTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {times.map(t => (
-            <Card key={t.id} className="flex items-center gap-3 px-4 py-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-white text-sm font-medium">{t.event}</p>
-                  {t.is_pb && (
-                    <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">PB</span>
-                  )}
-                </div>
-                <p className="text-slate-500 text-xs">{t.course} · {t.date}{t.competition ? ` · ${t.competition}` : ''}</p>
-              </div>
-              <p className="font-mono text-white font-bold text-sm">{formatTime(t.time_ms)}</p>
-              <div className="flex items-center gap-1">
+          {times.map(t => {
+            const isOpen = expandedId === t.id
+            const isConfirming = confirmDeleteId === t.id
+            return (
+              <Card key={t.id} className="overflow-hidden">
                 <button
-                  onClick={() => startEdit(t)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-sky-400 hover:bg-sky-400/10 transition-colors"
-                  aria-label="Bearbeiten"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-white/5 transition-colors"
+                  onClick={() => { setExpandedId(isOpen ? null : t.id); setConfirmDeleteId(null) }}
                 >
-                  <Pencil size={14} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-white text-sm font-medium">{t.event}</p>
+                      {t.is_pb && (
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">PB</span>
+                      )}
+                    </div>
+                    <p className="text-slate-500 text-xs">{t.course} · {t.date}{t.competition ? ` · ${t.competition}` : ''}</p>
+                  </div>
+                  <p className="font-mono text-white font-bold text-sm shrink-0">{formatTime(t.time_ms)}</p>
+                  <span className="text-slate-600 text-xs shrink-0">{isOpen ? '▲' : '▼'}</span>
                 </button>
-                <button
-                  onClick={() => handleDelete(t.id)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 transition-colors"
-                  aria-label="Löschen"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </Card>
-          ))}
+
+                {isOpen && (
+                  <div className="border-t border-white/5">
+                    {isConfirming ? (
+                      <div className="flex gap-2 px-4 py-3">
+                        <p className="flex-1 text-sm text-slate-300 self-center">Wirklich löschen?</p>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-4 py-2 rounded-xl text-sm text-slate-400 bg-white/5"
+                        >Abbrechen</button>
+                        <button
+                          onClick={() => { handleDelete(t.id); setExpandedId(null); setConfirmDeleteId(null) }}
+                          className="px-4 py-2 rounded-xl text-sm text-white bg-rose-500/80 font-medium"
+                        >Löschen</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 px-4 py-3">
+                        <button
+                          onClick={() => { startEdit(t); setExpandedId(null) }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-sky-500/10 text-sky-400 text-sm font-medium active:bg-sky-500/20"
+                        >
+                          <Pencil size={16} /> Bearbeiten
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(t.id)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-sm font-medium active:bg-rose-500/20"
+                        >
+                          <Trash2 size={16} /> Löschen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            )
+          })}
           {times.length < total && (
             <button
               onClick={loadMore}
