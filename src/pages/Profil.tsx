@@ -4,6 +4,8 @@ import { Camera, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
+import { listMyChildren } from '../api/members'
+import type { ChildUser } from '../api/members'
 import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
@@ -32,11 +34,15 @@ export function Profil() {
   const [myresultsSaved, setMyresultsSaved] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  const [myChildren, setMyChildren] = useState<ChildUser[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getICalToken().then(res => { if (res.ok) setICalToken(res.data) })
-  }, [])
+    if (user?.role === 'eltern') {
+      listMyChildren().then(res => { if (res.ok) setMyChildren(res.data) })
+    }
+  }, [user?.role])
 
   async function handleLogout() {
     await logout()
@@ -162,6 +168,22 @@ export function Profil() {
           ))}
         </div>
       </Card>
+
+      {/* Meine Kinder — for parents */}
+      {user?.role === 'eltern' && myChildren.length > 0 && (
+        <Card className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Meine Kinder</p>
+          <div className="space-y-2">
+            {myChildren.map(child => (
+              <div key={child.id} className="flex items-center gap-3">
+                <Avatar name={child.name} color={child.avatar_color ?? undefined} imageUrl={child.avatar_url ?? undefined} size="sm" />
+                <span className="text-white text-sm flex-1">{child.name}</span>
+                <Link to={`/training?childId=${child.id}`} className="text-xs text-teal-400 hover:text-teal-300">Training →</Link>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Admin / Trainer section */}
       {(isAdmin || isTrainer) && (

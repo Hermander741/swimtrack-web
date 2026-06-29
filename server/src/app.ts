@@ -14,6 +14,7 @@ import { chatRouter } from './routes/chat'
 import { pushRouter } from './routes/push'
 import { trainingRouter } from './routes/training/index'
 import { zeitenRouter } from './routes/zeiten'
+import { membersRouter } from './routes/members'
 
 export function createApp() {
   const app = express()
@@ -45,6 +46,7 @@ export function createApp() {
   app.use('/api/push', pushRouter)
   app.use('/api/training', trainingRouter)
   app.use('/api/zeiten', zeitenRouter)
+  app.use('/api/members', membersRouter)
 
   return app
 }
