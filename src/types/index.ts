@@ -101,6 +101,7 @@ export interface User {
   name: string
   role: Role
   avatar_color: string
+  avatar_url?: string
   created_at: string
   myresults_name?: string
 }
@@ -312,6 +313,7 @@ export interface SwimTimeEntry {
   user_id: string
   user_name: string
   avatar_color: string
+  avatar_url?: string
   event: string
   course: 'LB' | 'KB' | 'OW'
   time_ms: number

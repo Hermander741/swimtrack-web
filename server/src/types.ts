@@ -57,6 +57,7 @@ export interface User {
   name: string
   role: Role
   avatar_color: string
+  avatar_url?: string
   created_at: string
   myresults_name?: string
 }

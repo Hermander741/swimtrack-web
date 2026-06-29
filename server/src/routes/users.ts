@@ -1,9 +1,12 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
+import fs from 'fs'
+import path from 'path'
 import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import type { Role, User } from '../types'
+import { uploadAvatar, uploadDir } from '../middleware/upload'
 
 export const usersRouter = Router()
 
@@ -14,6 +17,28 @@ usersRouter.get('/', requireAuth(['admin', 'trainer']), async (_req, res) => {
     )
     res.json(ok(rows))
   } catch (e) {
+    res.status(500).json(err('Interner Fehler'))
+  }
+})
+
+usersRouter.post('/me/avatar', requireAuth(), uploadAvatar.single('avatar'), async (req, res) => {
+  if (!req.file) { res.status(400).json(err('Kein Bild hochgeladen')); return }
+  const avatarUrl = `/uploads/avatars/${req.file.filename}`
+  try {
+    const { rows: [old] } = await pool.query<{ avatar_url?: string }>(
+      'SELECT avatar_url FROM users WHERE id = $1', [req.user!.id],
+    )
+    if (old?.avatar_url) {
+      const oldFile = path.join(uploadDir, old.avatar_url.replace('/uploads/', ''))
+      if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile)
+    }
+    const { rows } = await pool.query<User>(
+      `UPDATE users SET avatar_url = $1 WHERE id = $2
+       RETURNING id, email, name, role, avatar_color, avatar_url, created_at, myresults_name`,
+      [avatarUrl, req.user!.id],
+    )
+    res.json(ok(rows[0]))
+  } catch {
     res.status(500).json(err('Interner Fehler'))
   }
 })
@@ -43,7 +68,7 @@ usersRouter.patch('/me', requireAuth(), async (req, res) => {
     values.push(req.user!.id)
     const { rows } = await pool.query<User>(
       `UPDATE users SET ${updates.join(', ')} WHERE id = $${values.length}
-       RETURNING id, email, name, role, avatar_color, created_at, myresults_name`,
+       RETURNING id, email, name, role, avatar_color, avatar_url, created_at, myresults_name`,
       values,
     )
     res.json(ok(rows[0]))

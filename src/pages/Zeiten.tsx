@@ -11,7 +11,7 @@ import type { SwimTimeEntry, MeetSummary, LiveResult, SwimResult } from '../type
 import { apiRequest } from '../api/client'
 
 type OuterTab = 'bestzeiten' | 'meine' | 'wettkampf' | 'live'
-type BestzetenView = 'ranking' | 'mitglieder'
+type BestzetenView = 'ranking' | 'mitglieder' | 'vergleich'
 
 // ─── Bestzeiten-Tab ──────────────────────────────────────────────────────────
 
@@ -60,15 +60,15 @@ function BestzetenTab() {
     <div className="space-y-4">
       {/* View toggle */}
       <div className="flex bg-slate-800/50 p-1 rounded-xl">
-        {(['ranking', 'mitglieder'] as const).map(v => (
+        {(['ranking', 'mitglieder', 'vergleich'] as const).map(v => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors capitalize ${
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${
               view === v ? 'bg-teal-500 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            {v === 'ranking' ? 'Ranking' : 'Mitglieder'}
+            {v === 'ranking' ? 'Ranking' : v === 'mitglieder' ? 'Mitglieder' : 'Vergleich'}
           </button>
         ))}
       </div>
@@ -182,6 +182,101 @@ function BestzetenTab() {
             )
           })}
         </div>
+      )}
+
+      {view === 'vergleich' && <VergleichView allPbs={allPbs} events={events} />}
+    </div>
+  )
+}
+
+function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: string[] }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selCourse, setSelCourse] = useState<'LB' | 'KB' | 'OW'>('LB')
+
+  const userMap = new Map<string, { name: string; color: string; imageUrl?: string }>()
+  allPbs.forEach(t => {
+    if (!userMap.has(t.user_id)) userMap.set(t.user_id, { name: t.user_name, color: t.avatar_color, imageUrl: t.avatar_url })
+  })
+  const allUsers = Array.from(userMap.entries()).sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'))
+
+  const toggle = (id: string) =>
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  const selected = selectedIds.filter(id => userMap.has(id))
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Schwimmer wählen</p>
+        <div className="flex flex-wrap gap-2">
+          {allUsers.map(([id, u]) => (
+            <button
+              key={id}
+              onClick={() => toggle(id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                selectedIds.includes(id)
+                  ? 'text-white'
+                  : 'bg-white/5 text-slate-400 hover:text-white'
+              }`}
+              style={selectedIds.includes(id) ? { backgroundColor: u.color } : undefined}
+            >
+              <Avatar name={u.name} color={u.color} imageUrl={u.imageUrl} size="sm" />
+              {u.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selected.length > 0 && (
+        <>
+          <div className="flex gap-2">
+            {(['LB', 'KB', 'OW'] as const).map(c => (
+              <button key={c} onClick={() => setSelCourse(c)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${selCourse === c ? 'bg-teal-500 text-white' : 'bg-white/5 text-slate-400 hover:text-white'}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className="overflow-x-auto -mx-4 px-4">
+            <table className="w-full text-xs min-w-[320px]">
+              <thead>
+                <tr>
+                  <th className="text-left text-slate-500 font-medium pb-2 pr-3">Disziplin</th>
+                  {selected.map(id => (
+                    <th key={id} className="text-center text-slate-300 font-medium pb-2 px-2 whitespace-nowrap">
+                      {userMap.get(id)!.name.split(' ')[0]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {events.map(ev => {
+                  const cells = selected.map(id =>
+                    allPbs.find(t => t.user_id === id && t.event === ev && t.course === selCourse),
+                  )
+                  if (cells.every(c => !c)) return null
+                  const fastest = Math.min(...cells.filter(Boolean).map(c => c!.time_ms))
+                  return (
+                    <tr key={ev}>
+                      <td className="text-slate-400 py-2 pr-3 whitespace-nowrap">{ev}</td>
+                      {cells.map((cell, i) => (
+                        <td key={i} className={`text-center py-2 px-2 font-mono font-bold ${
+                          cell && cell.time_ms === fastest ? 'text-teal-400' : 'text-white'
+                        }`}>
+                          {cell ? formatTime(cell.time_ms) : <span className="text-slate-700">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {selected.length === 0 && (
+        <p className="text-slate-600 text-sm text-center py-8">Wähle Schwimmer zum Vergleichen</p>
       )}
     </div>
   )

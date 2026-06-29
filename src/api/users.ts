@@ -6,6 +6,12 @@ export const listUsers = () => apiRequest<User[]>('/api/users')
 export const updateMe = (data: { name?: string; password?: string; avatar_color?: string; myresults_name?: string | null }) =>
   apiRequest<User>('/api/users/me', { method: 'PATCH', body: JSON.stringify(data) })
 
+export const uploadAvatar = (file: File) => {
+  const form = new FormData()
+  form.append('avatar', file)
+  return apiRequest<User>('/api/users/me/avatar', { method: 'POST', body: form })
+}
+
 export const changeRole = (id: string, role: Role) =>
   apiRequest<User>(`/api/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) })
 

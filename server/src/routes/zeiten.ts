@@ -34,7 +34,7 @@ zeitenRouter.get('/bestzeiten', requireAuth(), async (_req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT DISTINCT ON (st.user_id, st.event, st.course)
-        st.id, st.user_id, u.name AS user_name, u.avatar_color,
+        st.id, st.user_id, u.name AS user_name, u.avatar_color, u.avatar_url,
         st.event, st.course, st.time_ms, st.date::text AS date,
         st.competition, st.created_by, st.created_at,
         true AS is_pb

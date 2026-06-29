@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Camera } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { updateMe } from '../api/users'
+import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
 import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
@@ -29,6 +30,8 @@ export function Profil() {
   const [myresultsName, setMyresultsName] = useState(user?.myresults_name ?? '')
   const [myresultsSaving, setMyresultsSaving] = useState(false)
   const [myresultsSaved, setMyresultsSaved] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getICalToken().then(res => { if (res.ok) setICalToken(res.data) })
@@ -94,6 +97,15 @@ export function Profil() {
     setTimeout(() => setICalCopied(false), 2000)
   }
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    const res = await uploadAvatar(file)
+    if (res.ok) setUser(res.data)
+    setAvatarUploading(false)
+  }
+
   async function handleSaveMyresults() {
     setMyresultsSaving(true)
     const res = await updateMe({ myresults_name: myresultsName || null })
@@ -107,7 +119,19 @@ export function Profil() {
     <PageShell title="Profil">
       {/* Profile header */}
       <div className="flex flex-col items-center py-6 mb-6">
-        <Avatar name={user.name} color={user.avatar_color} size="lg" />
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
+        <button
+          className="relative group"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={avatarUploading}
+        >
+          <Avatar name={user.name} color={user.avatar_color} imageUrl={user.avatar_url} size="lg" />
+          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            {avatarUploading
+              ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Camera size={20} className="text-white" />}
+          </div>
+        </button>
         <h2 className="text-xl font-bold text-white mt-3">{user.name}</h2>
         <p className="text-slate-400 text-sm mt-1">{user.email}</p>
         <div className="mt-2">
