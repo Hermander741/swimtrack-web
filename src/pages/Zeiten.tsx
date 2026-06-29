@@ -201,13 +201,29 @@ interface TimeDetail {
   competition?: string
 }
 
+const VERGLEICH_STORAGE_KEY = 'vergleich_state'
+interface VergleichStorage { selectedIds: string[]; selCourse: 'LB' | 'KB' | 'OW'; externals: ExternalSwimmer[] }
+
+function loadVergleichState(): VergleichStorage {
+  try {
+    const raw = localStorage.getItem(VERGLEICH_STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as VergleichStorage
+  } catch { /* ignore */ }
+  return { selectedIds: [], selCourse: 'LB', externals: [] }
+}
+
 function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: string[] }) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [selCourse, setSelCourse] = useState<'LB' | 'KB' | 'OW'>('LB')
-  const [externals, setExternals] = useState<ExternalSwimmer[]>([])
+  const saved = loadVergleichState()
+  const [selectedIds, setSelectedIds] = useState<string[]>(saved.selectedIds)
+  const [selCourse, setSelCourse] = useState<'LB' | 'KB' | 'OW'>(saved.selCourse)
+  const [externals, setExternals] = useState<ExternalSwimmer[]>(saved.externals)
   const [extInput, setExtInput] = useState('')
   const [extLoading, setExtLoading] = useState(false)
   const [extError, setExtError] = useState('')
+
+  useEffect(() => {
+    localStorage.setItem(VERGLEICH_STORAGE_KEY, JSON.stringify({ selectedIds, selCourse, externals }))
+  }, [selectedIds, selCourse, externals])
 
   const userMap = new Map<string, { name: string; color: string; imageUrl?: string; isExternal?: boolean }>()
   allPbs.forEach(t => {
