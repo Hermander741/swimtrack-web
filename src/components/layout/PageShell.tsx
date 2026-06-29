@@ -3,7 +3,7 @@ import { BottomNav } from './BottomNav'
 import { TopBar } from './TopBar'
 
 interface PageShellProps {
-  title: string
+  title: React.ReactNode
   topBarRight?: React.ReactNode
   fab?: React.ReactNode
   children: React.ReactNode

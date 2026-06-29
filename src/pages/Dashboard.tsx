@@ -51,10 +51,15 @@ export function Dashboard() {
 
   return (
     <PageShell
-      title="Mermaids"
+      title={
+        <div className="flex items-center gap-2">
+          <img src="/icon.svg" alt="Mermaids" className="w-7 h-7 rounded-lg" />
+          <h1 className="text-base font-semibold text-white">Mermaids</h1>
+        </div>
+      }
       topBarRight={
         <Link to="/profil">
-          <Avatar name={user?.name ?? ''} color={user?.avatar_color} size="sm" />
+          <Avatar name={user?.name ?? ''} color={user?.avatar_color} imageUrl={user?.avatar_url} size="sm" />
         </Link>
       }
     >
