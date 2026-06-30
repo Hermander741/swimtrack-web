@@ -18,11 +18,11 @@ export function Landing() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
         {/* Icon — cropped via CSS background to show only the large icon */}
         <div
-          className="w-28 h-28 rounded-3xl mb-8 shadow-2xl shadow-blue-500/30 overflow-hidden"
+          className="w-28 h-28 rounded-3xl mb-8 shadow-2xl shadow-blue-500/30 overflow-hidden bg-blue-700"
           style={{
             backgroundImage: 'url(/swimbase-icon.png)',
-            backgroundSize: '287px',
-            backgroundPosition: '-30px -75px',
+            backgroundSize: '310px',
+            backgroundPosition: '-35px -82px',
             backgroundRepeat: 'no-repeat',
           }}
         />
