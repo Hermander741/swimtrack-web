@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Upload, Check, X, Trash2, UserPlus, UserMinus } from 'lucide-react'
+import { FileText, Upload, Check, X, Trash2, UserPlus, UserMinus, Settings } from 'lucide-react'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
@@ -13,8 +13,9 @@ import { apiRequest, getAccessToken } from '../api/client'
 import {
   listMemberDocs, uploadMemberDoc, approveMemberDoc, deleteMemberDoc, memberDocFileUrl,
   addParentChild, removeParentChild, listMemberParents, listMemberChildren,
+  listValidityRules, upsertValidityRule,
 } from '../api/members'
-import type { MemberDoc, DocCategory } from '../api/members'
+import type { MemberDoc, DocCategory, ValidityRule } from '../api/members'
 import type { User, Role } from '../types'
 
 const ROLES: Role[] = ['admin', 'trainer', 'eltern', 'mitglied']
@@ -25,6 +26,18 @@ const STATUS_COLORS: Record<string, string> = { pending: 'text-yellow-400', appr
 const STATUS_LABELS: Record<string, string> = { pending: 'Ausstehend', approved: 'Freigegeben', rejected: 'Abgelehnt' }
 
 type DetailTab = 'dokumente' | 'rolle' | 'eltern'
+
+function expiryInfo(validUntil: string | null): { label: string; color: string } | null {
+  if (!validUntil) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const exp = new Date(validUntil); exp.setHours(0, 0, 0, 0)
+  const days = Math.round((exp.getTime() - today.getTime()) / 86400000)
+  if (days < 0) return { label: 'Abgelaufen', color: 'text-red-400' }
+  if (days === 0) return { label: 'Läuft heute ab', color: 'text-red-400' }
+  if (days <= 7) return { label: `Noch ${days} Tag${days === 1 ? '' : 'e'}`, color: 'text-orange-400' }
+  if (days <= 30) return { label: `Noch ${days} Tage`, color: 'text-yellow-400' }
+  return { label: `Bis ${exp.toLocaleDateString('de-AT')}`, color: 'text-slate-400' }
+}
 
 export function Mitglieder() {
   const { isTrainer, isAdmin, user: currentUser } = useAuth()
@@ -53,12 +66,38 @@ export function Mitglieder() {
   const [addingChild, setAddingChild] = useState(false)
   const [linkUserId, setLinkUserId] = useState('')
 
+  // Validity rules settings
+  const [showSettings, setShowSettings] = useState(false)
+  const [validityRules, setValidityRules] = useState<ValidityRule[]>([])
+  const [editingRule, setEditingRule] = useState<{ category: DocCategory; days: string; reminder: string } | null>(null)
+
   useEffect(() => {
     listUsers().then(res => {
       if (res.ok) setUsers(res.data)
       setLoading(false)
     })
   }, [])
+
+  async function openSettings() {
+    const res = await listValidityRules()
+    if (res.ok) setValidityRules(res.data)
+    setShowSettings(true)
+  }
+
+  async function handleSaveRule() {
+    if (!editingRule) return
+    const days = parseInt(editingRule.days)
+    const reminder = editingRule.reminder.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0)
+    if (isNaN(days) || days < 1) return
+    const res = await upsertValidityRule(editingRule.category, days, reminder)
+    if (res.ok) {
+      setValidityRules(prev => {
+        const next = prev.filter(r => r.category !== editingRule.category)
+        return [...next, res.data]
+      })
+      setEditingRule(null)
+    }
+  }
 
   async function openMember(u: User) {
     setSelectedUser(u)
@@ -162,6 +201,11 @@ export function Mitglieder() {
   return (
     <PageShell
       title="Mitglieder"
+      topBarRight={(isTrainer || isAdmin) ? (
+        <button onClick={openSettings} className="p-2 text-slate-400 hover:text-white transition-colors">
+          <Settings size={18} />
+        </button>
+      ) : undefined}
       fab={isTrainer ? (
         <button
           onClick={() => setShowInvite(true)}
@@ -238,7 +282,10 @@ export function Mitglieder() {
                         <button onClick={() => openDoc(doc)} className="text-white text-sm font-medium truncate hover:text-teal-400 text-left w-full">
                           {doc.original_name}
                         </button>
-                        <p className="text-slate-500 text-xs">{CAT_LABELS[doc.category]} · <span className={STATUS_COLORS[doc.status]}>{STATUS_LABELS[doc.status]}</span></p>
+                        <p className="text-slate-500 text-xs">
+                          {CAT_LABELS[doc.category]} · <span className={STATUS_COLORS[doc.status]}>{STATUS_LABELS[doc.status]}</span>
+                          {doc.status === 'approved' && (() => { const e = expiryInfo(doc.valid_until); return e ? <> · <span className={e.color}>{e.label}</span></> : null })()}
+                        </p>
                       </div>
                       {(isTrainer || isAdmin) && doc.status === 'pending' && (
                         <div className="flex gap-1">
@@ -336,6 +383,57 @@ export function Mitglieder() {
           )}
         </Modal>
       )}
+
+      {/* Validity Rules Settings Modal */}
+      <Modal open={showSettings} onClose={() => { setShowSettings(false); setEditingRule(null) }} title="Gültigkeitsdauer">
+        <p className="text-slate-400 text-xs mb-4">Automatisches Ablaufdatum nach Freigabe. Erinnerungen werden per Push gesendet.</p>
+        <div className="space-y-3">
+          {CATEGORIES.map(cat => {
+            const rule = validityRules.find(r => r.category === cat)
+            const isEditing = editingRule?.category === cat
+            return (
+              <div key={cat} className="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-white text-sm font-medium">{CAT_LABELS[cat]}</span>
+                  {!isEditing && (
+                    <button
+                      onClick={() => setEditingRule({ category: cat, days: String(rule?.validity_days ?? 365), reminder: (rule?.reminder_days ?? [30, 7]).join(', ') })}
+                      className="text-xs text-teal-400 hover:text-teal-300"
+                    >
+                      {rule ? 'Bearbeiten' : '+ Regel'}
+                    </button>
+                  )}
+                </div>
+                {isEditing ? (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex gap-2 items-center">
+                      <span className="text-slate-400 text-xs w-20">Gültig (Tage)</span>
+                      <input type="number" min="1" value={editingRule!.days}
+                        onChange={e => setEditingRule(prev => prev ? { ...prev, days: e.target.value } : null)}
+                        className="flex-1 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-teal-500/50" />
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-slate-400 text-xs w-20">Erinnerung</span>
+                      <input type="text" value={editingRule!.reminder} placeholder="30, 7"
+                        onChange={e => setEditingRule(prev => prev ? { ...prev, reminder: e.target.value } : null)}
+                        className="flex-1 bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-teal-500/50" />
+                    </div>
+                    <p className="text-slate-500 text-xs">Erinnerungstage vor Ablauf, kommagetrennt (z.B. 30, 7)</p>
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveRule} className="flex-1 py-1.5 bg-teal-500/20 text-teal-400 rounded-lg text-sm">Speichern</button>
+                      <button onClick={() => setEditingRule(null)} className="px-3 py-1.5 text-slate-400 rounded-lg text-sm">Abbrechen</button>
+                    </div>
+                  </div>
+                ) : rule ? (
+                  <p className="text-slate-400 text-xs">{rule.validity_days} Tage · Erinnerung: {rule.reminder_days.join(', ')} Tage vorher</p>
+                ) : (
+                  <p className="text-slate-500 text-xs italic">Kein Ablaufdatum</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </Modal>
 
       {/* Invite Modal */}
       <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Mitglied einladen">

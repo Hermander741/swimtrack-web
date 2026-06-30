@@ -95,7 +95,7 @@ membersRouter.get('/:userId/documents', requireAuth(), async (req, res) => {
   const { rows } = await pool.query(
     `SELECT md.id, md.user_id, md.filename, md.original_name, md.category, md.status,
             md.uploaded_by, u.name AS uploader_name,
-            md.approved_by, a.name AS approver_name, md.approved_at, md.created_at
+            md.approved_by, a.name AS approver_name, md.approved_at, md.valid_until, md.created_at
      FROM member_documents md
      LEFT JOIN users u ON u.id = md.uploaded_by
      LEFT JOIN users a ON a.id = md.approved_by
@@ -148,10 +148,32 @@ membersRouter.patch('/:userId/documents/:docId/approve', requireAuth(['admin', '
   const { action } = req.body as { action: 'approve' | 'reject' }
   if (!['approve', 'reject'].includes(action)) { res.status(400).json(err('action muss approve oder reject sein')); return }
   const status = action === 'approve' ? 'approved' : 'rejected'
+
+  // Look up validity rule for this document's category
+  let validUntil: string | null = null
+  if (action === 'approve') {
+    const { rows: [doc] } = await pool.query<{ category: string }>(
+      `SELECT category FROM member_documents WHERE id = $1`, [docId],
+    )
+    if (doc) {
+      const { rows: [rule] } = await pool.query<{ validity_days: number }>(
+        `SELECT validity_days FROM document_validity_rules WHERE category = $1`, [doc.category],
+      )
+      if (rule?.validity_days) {
+        const d = new Date()
+        d.setDate(d.getDate() + rule.validity_days)
+        validUntil = d.toISOString().slice(0, 10)
+      }
+    }
+  }
+
   const { rows } = await pool.query(
-    `UPDATE member_documents SET status = $1, approved_by = $2, approved_at = NOW()
-     WHERE id = $3 AND user_id = $4 RETURNING id, status`,
-    [status, req.user!.id, docId, userId],
+    `UPDATE member_documents
+     SET status = $1, approved_by = $2, approved_at = NOW(),
+         valid_until = CASE WHEN $5::text IS NOT NULL THEN $5::date ELSE valid_until END,
+         reminder_sent = '[]'::jsonb
+     WHERE id = $3 AND user_id = $4 RETURNING id, status, valid_until`,
+    [status, req.user!.id, docId, userId, validUntil],
   )
   if (!rows[0]) { res.status(404).json(err('Dokument nicht gefunden')); return }
   res.json(ok(rows[0]))
@@ -188,6 +210,41 @@ membersRouter.delete('/:userId/documents/:docId', requireAuth(['admin', 'trainer
   if (!rows[0]) { res.status(404).json(err('Nicht gefunden')); return }
   const filePath = path.join(memberDocDir, rows[0].filename)
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+  res.json(ok(null))
+})
+
+// ── Validity Rules ────────────────────────────────────────────────────────────
+
+// GET /api/members/validity-rules
+membersRouter.get('/validity-rules', requireAuth(['admin', 'trainer']), async (_req, res) => {
+  const { rows } = await pool.query(`SELECT category, validity_days, reminder_days FROM document_validity_rules ORDER BY category`)
+  res.json(ok(rows))
+})
+
+// PATCH /api/members/validity-rules/:category
+membersRouter.patch('/validity-rules/:category', requireAuth(['admin', 'trainer']), async (req, res) => {
+  const { category } = req.params
+  const { validity_days, reminder_days } = req.body as { validity_days?: number; reminder_days?: number[] }
+  if (!CATEGORIES.includes(category as never)) { res.status(400).json(err('Ungültige Kategorie')); return }
+  if (validity_days !== undefined && (typeof validity_days !== 'number' || validity_days < 1)) {
+    res.status(400).json(err('validity_days muss eine positive Zahl sein')); return
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO document_validity_rules (category, validity_days, reminder_days, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (category) DO UPDATE SET
+       validity_days = EXCLUDED.validity_days,
+       reminder_days = EXCLUDED.reminder_days,
+       updated_at = NOW()
+     RETURNING category, validity_days, reminder_days`,
+    [category, validity_days ?? 365, reminder_days ?? [30, 7]],
+  )
+  res.json(ok(rows[0]))
+})
+
+// DELETE /api/members/validity-rules/:category
+membersRouter.delete('/validity-rules/:category', requireAuth(['admin']), async (req, res) => {
+  await pool.query(`DELETE FROM document_validity_rules WHERE category = $1`, [req.params.category])
   res.json(ok(null))
 })
 

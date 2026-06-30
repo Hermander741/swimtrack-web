@@ -16,7 +16,14 @@ export interface MemberDoc {
   approved_by: string | null
   approver_name: string | null
   approved_at: string | null
+  valid_until: string | null
   created_at: string
+}
+
+export interface ValidityRule {
+  category: DocCategory
+  validity_days: number
+  reminder_days: number[]
 }
 
 export interface ParentChildLink {
@@ -72,6 +79,17 @@ export const removeParentChild = (parentId: string, childId: string) =>
 
 export const listMyChildren = () =>
   apiRequest<ChildUser[]>('/api/members/my-children')
+
+export const listValidityRules = () =>
+  apiRequest<ValidityRule[]>('/api/members/validity-rules')
+
+export const upsertValidityRule = (category: DocCategory, validity_days: number, reminder_days: number[]) =>
+  apiRequest<ValidityRule>(`/api/members/validity-rules/${category}`, {
+    method: 'PATCH', body: JSON.stringify({ validity_days, reminder_days }),
+  })
+
+export const deleteValidityRule = (category: DocCategory) =>
+  apiRequest<null>(`/api/members/validity-rules/${category}`, { method: 'DELETE' })
 
 export const listMemberParents = (userId: string) =>
   apiRequest<{ id: string; name: string; email: string }[]>(`/api/members/${userId}/parents`)
