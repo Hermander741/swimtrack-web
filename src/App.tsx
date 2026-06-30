@@ -16,6 +16,7 @@ import { Impressum } from './pages/Impressum'
 import { Datenschutz } from './pages/Datenschutz'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { ResetPassword } from './pages/ResetPassword'
+import { News } from './pages/News'
 
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
@@ -71,6 +72,7 @@ function AppRoutes() {
       <Route path="/zeiten" element={<RequireAuth><Zeiten /></RequireAuth>} />
       <Route path="/mehr" element={<RequireAuth><Profil /></RequireAuth>} />
       <Route path="/schwimmer/:userId" element={<RequireAuth><SwimmerProfile /></RequireAuth>} />
+      <Route path="/news" element={<RequireAuth><News /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   )

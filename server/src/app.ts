@@ -16,6 +16,7 @@ import { pushRouter } from './routes/push'
 import { trainingRouter } from './routes/training/index'
 import { zeitenRouter } from './routes/zeiten'
 import { membersRouter } from './routes/members'
+import { newsRouter } from './routes/news'
 
 export function createApp() {
   const app = express()
@@ -49,6 +50,7 @@ export function createApp() {
   app.use('/api/training', trainingRouter)
   app.use('/api/zeiten', zeitenRouter)
   app.use('/api/members', membersRouter)
+  app.use('/api/news', newsRouter)
 
   return app
 }
