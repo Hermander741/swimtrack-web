@@ -7,7 +7,9 @@ interface TypingUser { userId: string; name: string }
 
 export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
   const [channels, setChannels] = useState<Channel[]>([])
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(null)
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(
+    () => sessionStorage.getItem('chat:activeChannelId'),
+  )
   const [messages, setMessages] = useState<Record<string, Message[]>>({})
   const [pinnedMessages, setPinnedMessages] = useState<Record<string, PinnedMessage[]>>({})
   const [typingUsers, setTypingUsers] = useState<Record<string, TypingUser[]>>({})
@@ -20,7 +22,10 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
     listChannels().then(res => {
       if (res.ok) setChannels(res.data)
     })
-  }, [])
+    // Restore previously active channel's messages on mount
+    const restored = sessionStorage.getItem('chat:activeChannelId')
+    if (restored) setActiveChannel(restored)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const socket = socketRef.current
@@ -128,6 +133,8 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
 
   const setActiveChannel = useCallback(async (id: string | null) => {
     setActiveChannelId(id)
+    if (id) sessionStorage.setItem('chat:activeChannelId', id)
+    else sessionStorage.removeItem('chat:activeChannelId')
     if (!id) return
     if (loadedChannels.current.has(id)) return
     setLoadingMessages(true)
