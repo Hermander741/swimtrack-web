@@ -1,27 +1,53 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT ?? 587),
-  secure: false,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-})
+const resend = new Resend(process.env.RESEND_API_KEY)
+const FROM = process.env.MAIL_FROM ?? 'SwimBase <noreply@swimbase.at>'
+const APP_URL = process.env.APP_URL ?? 'https://swimbase.at'
 
 export async function sendInvitationEmail(to: string, role: string, token: string): Promise<void> {
-  const appUrl = process.env.APP_URL ?? 'http://localhost:5173'
-  const link = `${appUrl}/register?token=${token}`
+  const link = `${APP_URL}/register?token=${token}`
+  const roleLabel: Record<string, string> = {
+    admin: 'Administrator',
+    trainer: 'Trainer',
+    eltern: 'Elternteil',
+    mitglied: 'Mitglied',
+  }
   try {
-    await transporter.sendMail({
-      from: process.env.SMTP_USER,
+    await resend.emails.send({
+      from: FROM,
       to,
       subject: 'Einladung zur Mermaids App',
       html: `
-        <p>Du wurdest als <strong>${role}</strong> zur Mermaids Schwimmverein App eingeladen.</p>
-        <p><a href="${link}">Jetzt registrieren</a></p>
-        <p>Dieser Link ist 7 Tage gültig.</p>
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px;">
+          <h2 style="margin:0 0 8px;color:#0f172a;">Willkommen bei SwimBase 🏊</h2>
+          <p style="color:#475569;margin:0 0 24px;">Du wurdest als <strong>${roleLabel[role] ?? role}</strong> zur Mermaids Wien App eingeladen.</p>
+          <a href="${link}" style="display:inline-block;padding:14px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;">Jetzt registrieren</a>
+          <p style="color:#94a3b8;font-size:13px;margin:24px 0 0;">Dieser Link ist 7 Tage gültig. Falls du diese Einladung nicht erwartet hast, kannst du sie ignorieren.</p>
+        </div>
       `,
     })
   } catch (e) {
     console.error('sendInvitationEmail failed:', e)
+  }
+}
+
+export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
+  const link = `${APP_URL}/reset-password?token=${token}`
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject: 'Passwort zurücksetzen – SwimBase',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px;">
+          <h2 style="margin:0 0 8px;color:#0f172a;">Passwort zurücksetzen</h2>
+          <p style="color:#475569;margin:0 0 24px;">Du hast eine Passwort-Zurücksetzen-Anfrage gestellt. Klicke auf den Button um ein neues Passwort zu setzen.</p>
+          <a href="${link}" style="display:inline-block;padding:14px 28px;background:#0ea5e9;color:#fff;text-decoration:none;border-radius:10px;font-weight:600;">Passwort zurücksetzen</a>
+          <p style="color:#94a3b8;font-size:13px;margin:24px 0 0;">Dieser Link ist 1 Stunde gültig. Falls du kein Passwort zurücksetzen wolltest, ignoriere diese E-Mail.</p>
+        </div>
+      `,
+    })
+  } catch (e) {
+    console.error('sendPasswordResetEmail failed:', e)
   }
 }
