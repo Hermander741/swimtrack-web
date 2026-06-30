@@ -14,6 +14,8 @@ import { SwimmerProfile } from './pages/SwimmerProfile'
 import { Landing } from './pages/Landing'
 import { Impressum } from './pages/Impressum'
 import { Datenschutz } from './pages/Datenschutz'
+import { ForgotPassword } from './pages/ForgotPassword'
+import { ResetPassword } from './pages/ResetPassword'
 
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
@@ -55,6 +57,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/impressum" element={<Impressum />} />
       <Route path="/datenschutz" element={<Datenschutz />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={user ? <Navigate to="/app" replace /> : <Landing />} />

@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
@@ -5,6 +6,7 @@ import { pool } from '../db/pool'
 import { issueTokens, COOKIE_OPTS, signAccess } from '../utils/jwt'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
+import { sendPasswordResetEmail } from '../utils/mail'
 import type { User } from '../types'
 
 export const authRouter = Router()
@@ -85,4 +87,63 @@ authRouter.post('/logout', async (req, res) => {
 
 authRouter.get('/me', requireAuth(), (req, res) => {
   res.json(ok(req.user!))
+})
+
+const forgotLimiter = rateLimit({ windowMs: 60_000, max: 5, validate: { xForwardedForHeader: false } })
+
+authRouter.post('/forgot-password', forgotLimiter, async (req, res) => {
+  try {
+    const { email } = req.body as { email?: string }
+    if (!email) { res.status(400).json(err('E-Mail erforderlich')); return }
+
+    const { rows } = await pool.query<{ id: string; email: string }>(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email.toLowerCase().trim()],
+    )
+    // Always respond ok — don't reveal whether email exists
+    if (!rows[0]) { res.json(ok(null)); return }
+
+    const user = rows[0]
+    const rawToken = crypto.randomBytes(32).toString('hex')
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
+
+    // Invalidate any existing unused tokens for this user
+    await pool.query(
+      'UPDATE password_reset_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL',
+      [user.id],
+    )
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token_hash) VALUES ($1, $2)',
+      [user.id, tokenHash],
+    )
+
+    await sendPasswordResetEmail(user.email, rawToken)
+    res.json(ok(null))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
+authRouter.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body as { token?: string; password?: string }
+    if (!token || !password) { res.status(400).json(err('Token und Passwort erforderlich')); return }
+    if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
+    if (!/[A-Z]/.test(password)) { res.status(400).json(err('Passwort muss mindestens einen Großbuchstaben enthalten')); return }
+    if (!/[a-z]/.test(password)) { res.status(400).json(err('Passwort muss mindestens einen Kleinbuchstaben enthalten')); return }
+    if (!/[0-9]/.test(password)) { res.status(400).json(err('Passwort muss mindestens eine Zahl enthalten')); return }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+    const { rows } = await pool.query<{ id: string; user_id: string }>(
+      'UPDATE password_reset_tokens SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING id, user_id',
+      [tokenHash],
+    )
+    if (!rows[0]) { res.status(400).json(err('Link ungültig oder abgelaufen')); return }
+
+    const hash = await bcrypt.hash(password, 12)
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, rows[0].user_id])
+
+    // Invalidate all refresh tokens — force re-login with new password
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [rows[0].user_id])
+
+    res.json(ok(null))
+  } catch { res.status(500).json(err('Interner Fehler')) }
 })

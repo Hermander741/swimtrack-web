@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -57,6 +57,12 @@ export function Login() {
           <Button type="submit" loading={loading} className="w-full mt-2">
             Anmelden
           </Button>
+
+          <div className="text-center pt-2">
+            <Link to="/forgot-password" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
+              Passwort vergessen?
+            </Link>
+          </div>
         </form>
       </div>
     </div>
