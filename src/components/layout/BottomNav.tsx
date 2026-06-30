@@ -11,8 +11,11 @@ const TABS = [
 export function BottomNav() {
   const { pathname } = useLocation()
   return (
-    <nav className="shrink-0 glass border-t border-white/8 safe-bottom z-40">
-      <div className="flex items-center justify-around px-2 pt-2 pb-1">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/8"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="flex items-center justify-around px-2 pt-2 pb-2">
         {TABS.map(tab => {
           const active = pathname === tab.path || (tab.path !== '/app' && pathname.startsWith(tab.path))
           return (
