@@ -312,14 +312,23 @@ chatRouter.post('/channels/:id/pins', requireAuth(['admin', 'trainer']), async (
     if (!canAccess) { res.status(404).json(err('Channel nicht gefunden')); return }
     const { messageId } = req.body as { messageId?: string }
     if (!messageId) { res.status(400).json(err('messageId erforderlich')); return }
-    const { rows } = await pool.query(
+    // Insert (ignore if already pinned), then always return full pin data
+    await pool.query(
       `INSERT INTO pinned_messages (channel_id, message_id, pinned_by)
        VALUES ($1, $2, $3)
-       ON CONFLICT (channel_id, message_id) DO NOTHING
-       RETURNING id, channel_id, message_id, pinned_by, pinned_at`,
+       ON CONFLICT (channel_id, message_id) DO NOTHING`,
       [req.params.id, messageId, req.user!.id],
     )
-    if (!rows[0]) { res.status(409).json(err('Bereits angepinnt')); return }
+    const { rows } = await pool.query(
+      `SELECT pm.id, pm.channel_id, pm.message_id, pm.pinned_by, pm.pinned_at,
+              m.content, m.sender_id, u.name AS sender_name, m.created_at AS message_created_at
+       FROM pinned_messages pm
+       JOIN messages m ON m.id = pm.message_id
+       LEFT JOIN users u ON u.id = m.sender_id
+       WHERE pm.channel_id = $1 AND pm.message_id = $2`,
+      [req.params.id, messageId],
+    )
+    if (!rows[0]) { res.status(404).json(err('Nachricht nicht gefunden')); return }
     res.status(201).json(ok(rows[0]))
   } catch {
     res.status(500).json(err('Interner Fehler'))
