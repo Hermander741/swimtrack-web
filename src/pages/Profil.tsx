@@ -231,33 +231,40 @@ export function Profil() {
                 <Bell size={18} className="text-teal-400 shrink-0" />
                 <div>
                   <p className="text-white text-sm font-medium">Aktiv</p>
-                  <p className="text-slate-400 text-xs">Push-Benachrichtigungen sind eingeschaltet</p>
+                  <p className="text-slate-400 text-xs">Push-Benachrichtigungen eingeschaltet</p>
                 </div>
               </div>
               <button onClick={handleDisablePush} disabled={pushLoading}
-                className="text-xs text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50">
-                Deaktivieren
+                className="text-xs text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-50 px-2 py-1">
+                Aus
               </button>
             </div>
           ) : pushPermission === 'denied' ? (
-            <div className="flex items-start gap-3">
-              <BellOff size={18} className="text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-white text-sm font-medium">Blockiert</p>
-                <p className="text-slate-400 text-xs mt-0.5">
-                  In den iOS-Einstellungen aktivieren:<br />
-                  <span className="text-teal-400">Einstellungen → Mermaids → Mitteilungen → Erlauben</span>
-                </p>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <BellOff size={18} className="text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-white text-sm font-medium">Benachrichtigungen blockiert</p>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    Benötigt HTTPS + Erlaubnis in iOS-Einstellungen:<br />
+                    <span className="text-teal-400">Einstellungen → Mermaids → Mitteilungen → Erlauben</span>
+                  </p>
+                </div>
               </div>
+              <button onClick={handleEnablePush} disabled={pushLoading}
+                className="w-full py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium disabled:opacity-50">
+                {pushLoading ? 'Bitte warten…' : 'Erneut versuchen'}
+              </button>
             </div>
           ) : (
             <button onClick={handleEnablePush} disabled={pushLoading}
-              className="w-full flex items-center gap-3 py-2 text-white hover:text-teal-400 transition-colors disabled:opacity-50">
-              <Bell size={18} className="text-slate-400 shrink-0" />
+              className="w-full flex items-center gap-3 py-2 text-white active:opacity-70 transition-opacity disabled:opacity-50">
+              <Bell size={18} className="text-teal-400 shrink-0" />
               <div className="text-left">
                 <p className="text-sm font-medium">{pushLoading ? 'Bitte warten…' : 'Benachrichtigungen aktivieren'}</p>
                 <p className="text-slate-400 text-xs">Für Chat, Training und Dokument-Erinnerungen</p>
               </div>
+              <span className="ml-auto text-slate-500 text-lg">›</span>
             </button>
           )}
         </Card>
