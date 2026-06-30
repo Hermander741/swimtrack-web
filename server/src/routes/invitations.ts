@@ -66,9 +66,16 @@ invitationsRouter.get('/:token', async (req, res) => {
 
 invitationsRouter.post('/:token/accept', async (req, res) => {
   try {
-    const { name, password } = req.body as { name?: string; password?: string }
-    if (!name || !password) { res.status(400).json(err('name and password required')); return }
+    const { vorname, nachname, geburtsdatum, password } = req.body as {
+      vorname?: string; nachname?: string; geburtsdatum?: string; password?: string
+    }
+    if (!vorname || !nachname || !geburtsdatum || !password) {
+      res.status(400).json(err('Vorname, Nachname, Geburtsdatum und Passwort sind Pflichtfelder')); return
+    }
     if (password.length < 8) { res.status(400).json(err('Passwort muss mindestens 8 Zeichen haben')); return }
+    if (!/[A-Z]/.test(password)) { res.status(400).json(err('Passwort muss mindestens einen Großbuchstaben enthalten')); return }
+    if (!/[a-z]/.test(password)) { res.status(400).json(err('Passwort muss mindestens einen Kleinbuchstaben enthalten')); return }
+    if (!/[0-9]/.test(password)) { res.status(400).json(err('Passwort muss mindestens eine Zahl enthalten')); return }
 
     // Atomically claim the invitation — only one concurrent request succeeds
     const { rows: invRows } = await pool.query<{ id: string; email: string; role: Role }>(
@@ -80,13 +87,14 @@ invitationsRouter.post('/:token/accept', async (req, res) => {
     if (!invRows[0]) { res.status(404).json(err('Ungültiger oder abgelaufener Einladungslink')); return }
 
     const inv = invRows[0]
+    const fullName = `${vorname.trim()} ${nachname.trim()}`
     const hash = await bcrypt.hash(password, 12)
     try {
       const { rows: users } = await pool.query<User>(
-        `INSERT INTO users (email, name, role, password_hash)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO users (email, name, vorname, nachname, geburtsdatum, role, password_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id, email, name, role, avatar_color, created_at`,
-        [inv.email, name.trim(), inv.role, hash],
+        [inv.email, fullName, vorname.trim(), nachname.trim(), geburtsdatum, inv.role, hash],
       )
       const user = users[0]
       const { accessToken, rawToken, tokenHash, tokenSelector, expiresAt } = await issueTokens(user)
