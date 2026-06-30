@@ -17,15 +17,9 @@ export function Landing() {
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
         {/* Icon — cropped via CSS background to show only the large icon */}
-        <div
-          className="w-28 h-28 rounded-3xl mb-8 shadow-2xl shadow-blue-500/30 overflow-hidden"
-          style={{
-            backgroundImage: 'url(/swimbase-icon.png)',
-            backgroundSize: '220px',
-            backgroundPosition: '-12px -22px',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
+        <div className="w-28 h-28 rounded-3xl mb-8 shadow-2xl shadow-blue-500/30 overflow-hidden">
+          <img src="/swimbase-icon.png" alt="SwimBase" className="w-full h-full object-cover" />
+        </div>
 
         <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
           Die App für deinen<br />
