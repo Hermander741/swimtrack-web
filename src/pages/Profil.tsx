@@ -10,6 +10,7 @@ import type { ChildUser } from '../api/members'
 import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
+import { ImageCropModal } from '../components/ui/ImageCropModal'
 import { Avatar } from '../components/ui/Avatar'
 import { Badge } from '../components/ui/Badge'
 import { Modal } from '../components/ui/Modal'
@@ -35,6 +36,7 @@ export function Profil() {
   const [myresultsSaved, setMyresultsSaved] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [myChildren, setMyChildren] = useState<ChildUser[]>([])
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
   const [pushLoading, setPushLoading] = useState(false)
@@ -129,16 +131,28 @@ export function Profil() {
     setTimeout(() => setICalCopied(false), 2000)
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setCropSrc(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
     setAvatarError('')
     setAvatarUploading(true)
+    const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
     const res = await uploadAvatar(file)
     if (res.ok) setUser(res.data)
     else setAvatarError(res.error ?? 'Upload fehlgeschlagen')
     setAvatarUploading(false)
-    e.target.value = ''
+  }
+
+  function handleCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
   }
 
   async function handleSaveMyresults() {
@@ -152,6 +166,9 @@ export function Profil() {
 
   return (
     <PageShell title="Profil">
+      {cropSrc && (
+        <ImageCropModal imageSrc={cropSrc} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
+      )}
       {/* Profile header */}
       <div className="flex flex-col items-center py-6 mb-6">
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
