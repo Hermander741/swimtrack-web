@@ -7,6 +7,9 @@ export const listEvents = () =>
 export const listBestzeiten = () =>
   apiRequest<SwimTimeEntry[]>('/api/zeiten/bestzeiten')
 
+export const listUserBestzeiten = (userId: string) =>
+  apiRequest<SwimTimeEntry[]>(`/api/zeiten/bestzeiten?user_id=${userId}`)
+
 export const listZeiten = (params: {
   user_id?: string; event?: string; course?: string; limit?: number; offset?: number
 }) => {

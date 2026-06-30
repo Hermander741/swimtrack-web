@@ -10,6 +10,7 @@ import { Profil } from './pages/Profil'
 import { Chat } from './pages/Chat'
 import { Training } from './pages/Training'
 import { Zeiten } from './pages/Zeiten'
+import { SwimmerProfile } from './pages/SwimmerProfile'
 
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
@@ -59,6 +60,7 @@ function AppRoutes() {
       <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
       <Route path="/zeiten" element={<RequireAuth><Zeiten /></RequireAuth>} />
       <Route path="/mehr" element={<RequireAuth><Profil /></RequireAuth>} />
+      <Route path="/schwimmer/:userId" element={<RequireAuth><SwimmerProfile /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

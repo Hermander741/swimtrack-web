@@ -4,12 +4,12 @@ interface AvatarProps {
   name: string
   color?: string
   imageUrl?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 export function Avatar({ name, color = '#0EA5E9', imageUrl, size = 'md' }: AvatarProps) {
   const initials = name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
-  const sizes = { sm: 'w-8 h-8 text-xs', md: 'w-10 h-10 text-sm', lg: 'w-16 h-16 text-xl' }
+  const sizes = { sm: 'w-8 h-8 text-xs', md: 'w-10 h-10 text-sm', lg: 'w-16 h-16 text-xl', xl: 'w-24 h-24 text-3xl' }
   const fullUrl = imageUrl ? `${BASE}${imageUrl}` : null
   return (
     <div

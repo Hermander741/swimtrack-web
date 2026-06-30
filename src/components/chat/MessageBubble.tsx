@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Message } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
+import { BASE } from '../../api/client'
 import { AttachmentPreview } from './AttachmentPreview'
 
 interface Props {
@@ -26,6 +28,7 @@ function getInitials(name: string | null) {
 
 export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, onReact, onRemoveReact }: Props) {
   const { user, isTrainer } = useAuth()
+  const navigate = useNavigate()
   const isOwn = msg.sender_id === user?.id
   const [showActions, setShowActions] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -61,10 +64,13 @@ export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, 
       onTouchMove={cancelLongPress}
     >
       {!isOwn && (
-        <div className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden"
-          style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}>
+        <div
+          className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden cursor-pointer"
+          style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}
+          onClick={() => msg.sender_id && navigate(`/schwimmer/${msg.sender_id}`)}
+        >
           {msg.sender_avatar_url ? (
-            <img src={msg.sender_avatar_url} alt={msg.sender_name ?? ''} className="w-full h-full object-cover" />
+            <img src={`${BASE}${msg.sender_avatar_url}`} alt={msg.sender_name ?? ''} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
               {getInitials(msg.sender_name)}

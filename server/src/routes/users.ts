@@ -10,6 +10,17 @@ import { uploadAvatar, uploadDir } from '../middleware/upload'
 
 export const usersRouter = Router()
 
+usersRouter.get('/:id/profile', requireAuth(), async (req, res) => {
+  try {
+    const { rows: [u] } = await pool.query(
+      `SELECT id, name, role, avatar_color, avatar_url FROM users WHERE id = $1`,
+      [req.params.id],
+    )
+    if (!u) { res.status(404).json(err('Nicht gefunden')); return }
+    res.json(ok(u))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
 usersRouter.get('/', requireAuth(['admin', 'trainer']), async (_req, res) => {
   try {
     const { rows } = await pool.query<User>(

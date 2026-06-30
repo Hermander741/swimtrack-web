@@ -30,7 +30,8 @@ zeitenRouter.get('/events', requireAuth(), (_req, res) => {
 })
 
 // GET /api/zeiten/bestzeiten — nur Bestzeiten pro User/Event/Course
-zeitenRouter.get('/bestzeiten', requireAuth(), async (_req, res) => {
+zeitenRouter.get('/bestzeiten', requireAuth(), async (req, res) => {
+  const userId = req.query.user_id as string | undefined
   try {
     const { rows } = await pool.query(`
       SELECT DISTINCT ON (st.user_id, st.event, st.course)
@@ -40,8 +41,9 @@ zeitenRouter.get('/bestzeiten', requireAuth(), async (_req, res) => {
         true AS is_pb
       FROM swim_times st
       JOIN users u ON u.id = st.user_id
+      WHERE ($1::uuid IS NULL OR st.user_id = $1)
       ORDER BY st.user_id, st.event, st.course, st.time_ms ASC
-    `)
+    `, [userId ?? null])
     res.json(ok(rows))
   } catch { res.status(500).json(err('Interner Fehler')) }
 })

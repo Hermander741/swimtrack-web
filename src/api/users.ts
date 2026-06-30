@@ -17,3 +17,6 @@ export const changeRole = (id: string, role: Role) =>
 
 export const deleteUser = (id: string) =>
   apiRequest(`/api/users/${id}`, { method: 'DELETE' })
+
+export const getUserProfile = (id: string) =>
+  apiRequest<{ id: string; name: string; role: string; avatar_color: string | null; avatar_url: string | null }>(`/api/users/${id}/profile`)
