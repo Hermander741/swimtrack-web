@@ -70,11 +70,10 @@ export function Landing() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-5 px-6 flex items-center justify-between">
-        <div className="bg-white rounded-lg px-2 py-1">
-          <img src="/swimbase-logo.png" alt="SwimBase" className="h-5 object-contain opacity-70" />
-        </div>
+      <footer className="border-t border-white/5 py-5 px-6 flex items-center justify-center gap-6">
         <p className="text-slate-700 text-xs">© {new Date().getFullYear()} SwimBase</p>
+        <a href="/impressum" className="text-slate-600 text-xs hover:text-slate-400 transition-colors">Impressum</a>
+        <a href="/datenschutz" className="text-slate-600 text-xs hover:text-slate-400 transition-colors">Datenschutz</a>
       </footer>
     </div>
   )

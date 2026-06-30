@@ -12,6 +12,8 @@ import { Training } from './pages/Training'
 import { Zeiten } from './pages/Zeiten'
 import { SwimmerProfile } from './pages/SwimmerProfile'
 import { Landing } from './pages/Landing'
+import { Impressum } from './pages/Impressum'
+import { Datenschutz } from './pages/Datenschutz'
 
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
@@ -51,6 +53,8 @@ function AppRoutes() {
   const { user } = useAuth()
   return (
     <Routes>
+      <Route path="/impressum" element={<Impressum />} />
+      <Route path="/datenschutz" element={<Datenschutz />} />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/" element={user ? <Navigate to="/app" replace /> : <Landing />} />
