@@ -134,7 +134,7 @@ chatRouter.delete('/channels/:id/members/:userId', requireAuth(['admin', 'traine
 
 interface DbMessage {
   id: string; channel_id: string; sender_id: string | null; sender_name: string | null
-  sender_avatar_color: string | null; content: string | null; reply_to: string | null
+  sender_avatar_color: string | null; sender_avatar_url: string | null; content: string | null; reply_to: string | null
   reply_preview: string | null; edited_at: string | null; deleted_for_all: boolean
   created_at: string
 }
@@ -158,7 +158,7 @@ chatRouter.get('/channels/:id/messages', requireAuth(), async (req, res) => {
     if (before) {
       const { rows: r } = await pool.query<DbMessage>(
         `SELECT m.id, m.channel_id, m.sender_id, u.name AS sender_name,
-                u.avatar_color AS sender_avatar_color,
+                u.avatar_color AS sender_avatar_color, u.avatar_url AS sender_avatar_url,
                 CASE WHEN dm.message_id IS NOT NULL THEN NULL
                      WHEN m.deleted_for_all THEN NULL
                      ELSE m.content END AS content,
@@ -178,7 +178,7 @@ chatRouter.get('/channels/:id/messages', requireAuth(), async (req, res) => {
     } else {
       const { rows: r } = await pool.query<DbMessage>(
         `SELECT m.id, m.channel_id, m.sender_id, u.name AS sender_name,
-                u.avatar_color AS sender_avatar_color,
+                u.avatar_color AS sender_avatar_color, u.avatar_url AS sender_avatar_url,
                 CASE WHEN dm.message_id IS NOT NULL THEN NULL
                      WHEN m.deleted_for_all THEN NULL
                      ELSE m.content END AS content,

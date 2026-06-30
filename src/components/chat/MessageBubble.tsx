@@ -61,11 +61,15 @@ export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, 
       onTouchMove={cancelLongPress}
     >
       {!isOwn && (
-        <div
-          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-1"
-          style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}
-        >
-          {getInitials(msg.sender_name)}
+        <div className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden"
+          style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}>
+          {msg.sender_avatar_url ? (
+            <img src={msg.sender_avatar_url} alt={msg.sender_name ?? ''} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
+              {getInitials(msg.sender_name)}
+            </div>
+          )}
         </div>
       )}
 

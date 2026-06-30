@@ -161,6 +161,7 @@ export interface Message {
   sender_id: string | null
   sender_name: string | null
   sender_avatar_color: string | null
+  sender_avatar_url: string | null
   content: string | null
   reply_to: string | null
   reply_preview: string | null
