@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { BASE } from '../../api/client'
 import { uploadChannelAvatar } from '../../api/chat'
 import { CreateChannelModal } from './CreateChannelModal'
+import { ImageCropModal } from '../ui/ImageCropModal'
 
 interface Props {
   channels: Channel[]
@@ -23,37 +24,60 @@ function ChannelAvatar({ channel, canEdit, onUpdated }: {
   onUpdated: (ch: Channel) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const url = URL.createObjectURL(file)
+    setCropSrc(url)
+    e.target.value = ''
+  }
+
+  async function handleCropConfirm(blob: Blob) {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
     setUploading(true)
+    const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
     const res = await uploadChannelAvatar(channel.id, file)
     if (res.ok) onUpdated(res.data)
     setUploading(false)
-    e.target.value = ''
+  }
+
+  function handleCropCancel() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
   }
 
   const avatarUrl = channel.avatar_url ? `${BASE}${channel.avatar_url}` : null
 
   return (
-    <div
-      className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/40 relative ${canEdit ? 'cursor-pointer' : ''}`}
-      onClick={e => { if (canEdit) { e.stopPropagation(); inputRef.current?.click() } }}
-      title={canEdit ? 'Foto ändern' : undefined}
-    >
-      {uploading ? (
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      ) : avatarUrl ? (
-        <img src={avatarUrl} alt={channel.name} className="w-full h-full object-cover" />
-      ) : (
-        getInitials(channel.name)
+    <>
+      <div
+        className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/40 relative ${canEdit ? 'cursor-pointer' : ''}`}
+        onClick={e => { if (canEdit) { e.stopPropagation(); inputRef.current?.click() } }}
+        title={canEdit ? 'Foto ändern' : undefined}
+      >
+        {uploading ? (
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : avatarUrl ? (
+          <img src={avatarUrl} alt={channel.name} className="w-full h-full object-cover" />
+        ) : (
+          getInitials(channel.name)
+        )}
+        {canEdit && (
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
+        )}
+      </div>
+      {cropSrc && (
+        <ImageCropModal
+          imageSrc={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
       )}
-      {canEdit && (
-        <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
-      )}
-    </div>
+    </>
   )
 }
 
