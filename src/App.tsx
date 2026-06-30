@@ -11,6 +11,7 @@ import { Chat } from './pages/Chat'
 import { Training } from './pages/Training'
 import { Zeiten } from './pages/Zeiten'
 import { SwimmerProfile } from './pages/SwimmerProfile'
+import { Landing } from './pages/Landing'
 
 function SplashScreen({ visible }: { visible: boolean }) {
   return (
@@ -42,7 +43,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (loading || splashVisible) {
     return <SplashScreen visible={splashVisible} />
   }
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -50,9 +51,10 @@ function AppRoutes() {
   const { user } = useAuth()
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
+      <Route path="/" element={user ? <Navigate to="/app" replace /> : <Landing />} />
+      <Route path="/app" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/mitglieder" element={<RequireAuth><Mitglieder /></RequireAuth>} />
       <Route path="/dokumente" element={<RequireAuth><Dokumente /></RequireAuth>} />
       <Route path="/profil" element={<RequireAuth><Profil /></RequireAuth>} />
@@ -61,7 +63,7 @@ function AppRoutes() {
       <Route path="/zeiten" element={<RequireAuth><Zeiten /></RequireAuth>} />
       <Route path="/mehr" element={<RequireAuth><Profil /></RequireAuth>} />
       <Route path="/schwimmer/:userId" element={<RequireAuth><SwimmerProfile /></RequireAuth>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   )
 }

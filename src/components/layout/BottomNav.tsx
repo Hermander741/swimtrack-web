@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 
 const TABS = [
-  { path: '/', label: 'Home', icon: '🏠' },
+  { path: '/app', label: 'Home', icon: '🏠' },
   { path: '/chat', label: 'Chat', icon: '💬' },
   { path: '/training', label: 'Training', icon: '📅' },
   { path: '/zeiten', label: 'Zeiten', icon: '⏱' },
@@ -14,7 +14,7 @@ export function BottomNav() {
     <nav className="shrink-0 glass border-t border-white/8 safe-bottom z-40">
       <div className="flex items-center justify-around px-2 pt-2 pb-1">
         {TABS.map(tab => {
-          const active = pathname === tab.path || (tab.path !== '/' && pathname.startsWith(tab.path))
+          const active = pathname === tab.path || (tab.path !== '/app' && pathname.startsWith(tab.path))
           return (
             <Link
               key={tab.path}
