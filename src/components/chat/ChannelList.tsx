@@ -63,9 +63,6 @@ export function ChannelList({ channels, activeChannelId, onSelect, onChannelCrea
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-4 border-b border-white/10">
-        <h2 className="text-white font-semibold text-sm uppercase tracking-widest opacity-60">Chats</h2>
-      </div>
       <div className="flex-1 overflow-y-auto py-2">
         {channels.length === 0 && (
           <p className="text-slate-400 text-sm px-4 py-6">Keine Chats vorhanden</p>
