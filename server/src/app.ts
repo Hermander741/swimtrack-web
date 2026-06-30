@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import express from 'express'
+import helmet from 'helmet'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { meetsRouter } from './routes/meets'
@@ -19,6 +20,7 @@ import { membersRouter } from './routes/members'
 export function createApp() {
   const app = express()
   app.set('trust proxy', 1)
+  app.use(helmet({ contentSecurityPolicy: false }))
   const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173').split(',')
 
   app.use(cors({
