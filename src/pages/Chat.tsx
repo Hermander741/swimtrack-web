@@ -113,6 +113,10 @@ export function Chat() {
                   hasMore={activeHasMore}
                   onLoadMore={() => loadMoreMessages(activeChannelId)}
                   onMarkRead={lastId => markRead(activeChannelId, lastId)}
+                  onPinned={pin => setPinnedMessages(prev => ({
+                    ...prev,
+                    [activeChannelId]: [pin, ...(prev[activeChannelId] ?? [])],
+                  }))}
                   onUnpinned={pinId => setPinnedMessages(prev => ({
                     ...prev,
                     [activeChannelId]: (prev[activeChannelId] ?? []).filter(p => p.id !== pinId),

@@ -53,7 +53,8 @@ export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, 
 
   return (
     <div
-      className={`flex ${isOwn ? 'flex-row-reverse' : 'flex-row'} gap-2 px-4 py-1 group`}
+      className={`flex ${isOwn ? 'flex-row-reverse' : 'flex-row'} gap-2 px-4 py-1 group select-none`}
+      style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
       onContextMenu={e => { e.preventDefault(); setShowActions(true) }}
       onTouchStart={startLongPress}
       onTouchEnd={cancelLongPress}

@@ -15,6 +15,7 @@ interface Props {
   hasMore: boolean
   onLoadMore: () => void
   onMarkRead: (lastId: string) => void
+  onPinned: (pin: PinnedMessage) => void
   onUnpinned: (pinId: string) => void
   onReply: (msg: Message) => void
   onEdit: (msg: Message) => void
@@ -35,7 +36,7 @@ function formatDateLabel(iso: string) {
 
 export function MessageList({
   channelId, messages, pinnedMessages, typingUsers, hasMore,
-  onLoadMore, onMarkRead, onUnpinned, onReply, onEdit, onDelete, onReact, onRemoveReact,
+  onLoadMore, onMarkRead, onPinned, onUnpinned, onReply, onEdit, onDelete, onReact, onRemoveReact,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
@@ -66,8 +67,9 @@ export function MessageList({
   }
 
   const handlePin = useCallback(async (msgId: string) => {
-    await pinMessage(channelId, msgId)
-  }, [channelId])
+    const res = await pinMessage(channelId, msgId)
+    if (res.ok) onPinned(res.data)
+  }, [channelId, onPinned])
 
   const groups: { label: string; messages: Message[] }[] = []
   for (const msg of messages) {
