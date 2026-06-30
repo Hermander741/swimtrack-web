@@ -34,8 +34,8 @@ export function Landing() {
           className="w-28 h-28 rounded-3xl mb-8 shadow-2xl shadow-blue-500/30 overflow-hidden"
           style={{
             backgroundImage: 'url(/swimbase-icon.png)',
-            backgroundSize: '205px',
-            backgroundPosition: '-9px -20px',
+            backgroundSize: '220px',
+            backgroundPosition: '-12px -22px',
             backgroundRepeat: 'no-repeat',
           }}
         />
