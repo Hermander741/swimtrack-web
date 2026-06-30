@@ -40,7 +40,7 @@ function ChannelAvatar({ channel, canEdit, onUpdated }: {
   return (
     <div
       className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/40 relative ${canEdit ? 'cursor-pointer' : ''}`}
-      onClick={() => canEdit && inputRef.current?.click()}
+      onClick={e => { if (canEdit) { e.stopPropagation(); inputRef.current?.click() } }}
       title={canEdit ? 'Foto ändern' : undefined}
     >
       {uploading ? (
