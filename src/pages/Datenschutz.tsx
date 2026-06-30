@@ -82,9 +82,6 @@ export function Datenschutz() {
           <li><strong className="text-white">Mitglieder ab 14 Jahren:</strong> Diese können selbst in die Verarbeitung ihrer personenbezogenen Daten einwilligen.</li>
         </ul>
         <p>
-          Die Dateneingabe für Minderjährige unter 14 Jahren erfolgt durch erziehungsberechtigte Elternteile. Trainer und Administratoren können Daten nur im Rahmen eines ausdrücklichen Auftrags der Erziehungsberechtigten erfassen.
-        </p>
-        <p>
           Daten Minderjähriger werden ausschließlich für die Vereinsorganisation verarbeitet und nicht an Dritte weitergegeben. Profilbilder von Minderjährigen sind nur innerhalb der App für Vereinsmitglieder sichtbar.
         </p>
       </Section>
