@@ -35,20 +35,12 @@ export function Landing() {
           Training, Bestzeiten, Mitglieder und Vereinskommunikation – alles in einer modernen PWA, maßgeschneidert für euren Verein.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => navigate('/login')}
-            className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl text-base transition-colors shadow-lg shadow-blue-600/30"
-          >
-            Zur App →
-          </button>
-          <a
-            href="mailto:info@swimbase.at"
-            className="px-8 py-3.5 rounded-2xl text-base font-medium text-slate-300 border border-white/10 hover:bg-white/5 transition-colors"
-          >
-            Verein anmelden
-          </a>
-        </div>
+        <button
+          onClick={() => navigate('/login')}
+          className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl text-base transition-colors shadow-lg shadow-blue-600/30"
+        >
+          Zur App →
+        </button>
       </div>
 
       {/* Features */}
