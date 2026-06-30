@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Camera, Users } from 'lucide-react'
+import { Camera, Users, Bell, BellOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
 import { listMyChildren } from '../api/members'
+import { subscribePush, unsubscribePush } from '../api/push'
 import type { ChildUser } from '../api/members'
 import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
@@ -35,6 +36,8 @@ export function Profil() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const [myChildren, setMyChildren] = useState<ChildUser[]>([])
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
+  const [pushLoading, setPushLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -42,7 +45,29 @@ export function Profil() {
     if (user?.role === 'eltern') {
       listMyChildren().then(res => { if (res.ok) setMyChildren(res.data) })
     }
+    if ('Notification' in window) setPushPermission(Notification.permission)
   }, [user?.role])
+
+  async function handleEnablePush() {
+    setPushLoading(true)
+    try {
+      const permission = await Notification.requestPermission()
+      setPushPermission(permission)
+      if (permission === 'granted') await subscribePush()
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  async function handleDisablePush() {
+    setPushLoading(true)
+    try {
+      await unsubscribePush()
+      setPushPermission('default')
+    } finally {
+      setPushLoading(false)
+    }
+  }
 
   async function handleLogout() {
     await logout()
@@ -193,6 +218,48 @@ export function Profil() {
             <Users size={18} className="text-teal-400 shrink-0" />
             <span className="text-sm font-medium">Mitglieder verwalten</span>
           </Link>
+        </Card>
+      )}
+
+      {/* Push notifications */}
+      {pushPermission !== 'unsupported' && (
+        <Card className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Benachrichtigungen</p>
+          {pushPermission === 'granted' ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell size={18} className="text-teal-400 shrink-0" />
+                <div>
+                  <p className="text-white text-sm font-medium">Aktiv</p>
+                  <p className="text-slate-400 text-xs">Push-Benachrichtigungen sind eingeschaltet</p>
+                </div>
+              </div>
+              <button onClick={handleDisablePush} disabled={pushLoading}
+                className="text-xs text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50">
+                Deaktivieren
+              </button>
+            </div>
+          ) : pushPermission === 'denied' ? (
+            <div className="flex items-start gap-3">
+              <BellOff size={18} className="text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-white text-sm font-medium">Blockiert</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  In den iOS-Einstellungen aktivieren:<br />
+                  <span className="text-teal-400">Einstellungen → Mermaids → Mitteilungen → Erlauben</span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <button onClick={handleEnablePush} disabled={pushLoading}
+              className="w-full flex items-center gap-3 py-2 text-white hover:text-teal-400 transition-colors disabled:opacity-50">
+              <Bell size={18} className="text-slate-400 shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-medium">{pushLoading ? 'Bitte warten…' : 'Benachrichtigungen aktivieren'}</p>
+                <p className="text-slate-400 text-xs">Für Chat, Training und Dokument-Erinnerungen</p>
+              </div>
+            </button>
+          )}
         </Card>
       )}
 
