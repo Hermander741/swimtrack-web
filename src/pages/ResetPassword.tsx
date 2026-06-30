@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { apiRequest } from '../api/client'
 import { Input } from '../components/ui/Input'
@@ -18,15 +18,25 @@ export function ResetPassword() {
   const token = params.get('token') ?? ''
   const navigate = useNavigate()
 
+  const [email, setEmail] = useState('')
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
+  useEffect(() => {
+    if (!token) { setTokenValid(false); return }
+    apiRequest<{ email: string }>(`/api/auth/reset-password/${token}`).then(res => {
+      if (res.ok) { setEmail(res.data.email); setTokenValid(true) }
+      else setTokenValid(false)
+    })
+  }, [token])
+
   const strength = passwordStrength(password)
 
-  if (!token) {
+  if (!token || tokenValid === false) {
     return (
       <div className="min-h-dvh bg-ocean-950 flex items-center justify-center px-6">
         <div className="text-center">
@@ -57,6 +67,14 @@ export function ResetPassword() {
     }
   }
 
+  if (tokenValid === null) {
+    return (
+      <div className="min-h-dvh bg-ocean-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   if (done) {
     return (
       <div className="min-h-dvh bg-ocean-950 flex items-center justify-center px-6">
@@ -76,6 +94,8 @@ export function ResetPassword() {
         <p className="text-slate-400 text-sm mb-8">Wähle ein neues Passwort für dein Konto.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Hidden username field so iOS Password Manager knows which account this belongs to */}
+          <input type="email" name="username" autoComplete="username" value={email} readOnly className="hidden" />
           <div className="space-y-1.5">
             <Input
               label="Neues Passwort"

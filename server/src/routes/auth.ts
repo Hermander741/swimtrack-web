@@ -122,6 +122,20 @@ authRouter.post('/forgot-password', forgotLimiter, async (req, res) => {
   } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
+authRouter.get('/reset-password/:token', async (req, res) => {
+  try {
+    const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex')
+    const { rows } = await pool.query<{ email: string }>(
+      `SELECT u.email FROM password_reset_tokens t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.token_hash = $1 AND t.used_at IS NULL AND t.expires_at > now()`,
+      [tokenHash],
+    )
+    if (!rows[0]) { res.status(404).json(err('Link ungültig oder abgelaufen')); return }
+    res.json(ok({ email: rows[0].email }))
+  } catch { res.status(500).json(err('Interner Fehler')) }
+})
+
 authRouter.post('/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body as { token?: string; password?: string }
