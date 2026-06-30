@@ -63,16 +63,26 @@ export function Datenschutz() {
 
       <Section title="4a. Besondere Kategorien personenbezogener Daten (Art. 9 DSGVO)">
         <p>
-          Sportärztliche Atteste und ähnliche Gesundheitsdokumente stellen besondere Kategorien personenbezogener Daten im Sinne von Art. 9 DSGVO dar. Diese Daten werden nur auf ausdrückliche Veranlassung des Mitglieds hochgeladen.
+          Sportärztliche Atteste und ähnliche Gesundheitsdokumente stellen besondere Kategorien personenbezogener Daten im Sinne von Art. 9 DSGVO dar. Diese Daten werden nur auf ausdrückliche Veranlassung des Mitglieds – oder bei Mitgliedern unter 14 Jahren durch die Erziehungsberechtigten – hochgeladen.
         </p>
         <p>
-          Die Verarbeitung erfolgt auf Grundlage der ausdrücklichen Einwilligung gemäß Art. 9 Abs. 2 lit. a DSGVO. Die Einwilligung kann jederzeit widerrufen werden (Kontakt: herman.urban@live.com). Gesundheitsdaten sind ausschließlich für Trainer und Administratoren des jeweiligen Vereins einsehbar.
+          Die Verarbeitung erfolgt auf Grundlage der ausdrücklichen Einwilligung gemäß Art. 9 Abs. 2 lit. a DSGVO. Bei Mitgliedern, die das 14. Lebensjahr noch nicht vollendet haben, ist die Einwilligung der Erziehungsberechtigten erforderlich (§ 4 Abs. 4 DSG); ab dem vollendeten 14. Lebensjahr können Mitglieder selbst einwilligen.
+        </p>
+        <p>
+          Die Einwilligung kann jederzeit widerrufen werden (Kontakt: <a href="mailto:herman.urban@live.com" className="text-blue-400 hover:underline">herman.urban@live.com</a>). Gesundheitsdaten sind ausschließlich für Trainer und Administratoren des jeweiligen Vereins einsehbar.
         </p>
       </Section>
 
       <Section title="5. Daten Minderjähriger">
         <p>
-          SwimBase ermöglicht die Verwaltung von Mitgliedern unter 18 Jahren. Die Registrierung und Dateneingabe für Minderjährige erfolgt durch erziehungsberechtigte Elternteile oder durch berechtigte Trainer/Administratoren des Vereins. Elternteile können über die App mit dem Account ihres Kindes verknüpft werden.
+          SwimBase ermöglicht die Verwaltung von Mitgliedern unter 18 Jahren. Für die Einwilligung in die Datenverarbeitung Minderjähriger gilt nach österreichischem Recht (§ 4 Abs. 4 DSG):
+        </p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li><strong className="text-white">Mitglieder unter 14 Jahren:</strong> Die Einwilligung ist ausschließlich durch die erziehungsberechtigten Elternteile zu erteilen. Trainer und Administratoren des Vereins können diese Einwilligung nicht stellvertretend erteilen.</li>
+          <li><strong className="text-white">Mitglieder ab 14 Jahren:</strong> Diese können selbst in die Verarbeitung ihrer personenbezogenen Daten einwilligen.</li>
+        </ul>
+        <p>
+          Die Dateneingabe für Minderjährige unter 14 Jahren erfolgt durch erziehungsberechtigte Elternteile. Trainer und Administratoren können Daten nur im Rahmen eines ausdrücklichen Auftrags der Erziehungsberechtigten erfassen.
         </p>
         <p>
           Daten Minderjähriger werden ausschließlich für die Vereinsorganisation verarbeitet und nicht an Dritte weitergegeben. Profilbilder von Minderjährigen sind nur innerhalb der App für Vereinsmitglieder sichtbar.
@@ -81,7 +91,7 @@ export function Datenschutz() {
 
       <Section title="6. Speicherdauer">
         <p>
-          Personenbezogene Daten werden nur so lange gespeichert, wie dies für die genannten Zwecke erforderlich ist bzw. solange eine Mitgliedschaft im Verein besteht. Bei Austritt aus dem Verein werden die Daten auf Anfrage gelöscht, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
+          Personenbezogene Daten werden nur so lange gespeichert, wie dies für die genannten Zwecke erforderlich ist. Nach Beendigung der Vereinsmitgliedschaft werden personenbezogene Daten innerhalb von 12 Monaten gelöscht, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen. Auf begründeten Antrag erfolgt die Löschung unverzüglich (Kontakt: <a href="mailto:herman.urban@live.com" className="text-blue-400 hover:underline">herman.urban@live.com</a>).
         </p>
       </Section>
 
