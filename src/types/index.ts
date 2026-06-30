@@ -135,6 +135,7 @@ export interface Channel {
   created_by: string | null
   is_archived: boolean
   created_at: string
+  avatar_url: string | null
   last_message_id?: string | null
 }
 

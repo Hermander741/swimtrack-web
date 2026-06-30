@@ -17,6 +17,12 @@ export function deleteChannel(id: string) {
   return apiRequest<null>(`/api/chat/channels/${id}`, { method: 'DELETE' })
 }
 
+export function uploadChannelAvatar(channelId: string, file: File) {
+  const form = new FormData()
+  form.append('avatar', file)
+  return apiRequest<Channel>(`/api/chat/channels/${channelId}/avatar`, { method: 'POST', body: form })
+}
+
 export function addMember(channelId: string, userId: string) {
   return apiRequest<null>(`/api/chat/channels/${channelId}/members`, {
     method: 'POST', body: JSON.stringify({ userId }),

@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import { userCanAccessChannel } from '../utils/channelAccess'
 import { chatUpload, chatUploadDir, SIZE_LIMITS } from '../middleware/uploadChat'
+import { uploadAvatar } from '../middleware/upload'
 
 export const chatRouter = Router()
 
@@ -19,7 +20,7 @@ chatRouter.get('/channels', requireAuth(), async (req, res) => {
     const rank = roleRank[user.role] ?? 1
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.min_role, c.created_by, c.is_archived, c.created_at,
-              cr.last_message_id
+              c.avatar_url, cr.last_message_id
        FROM channels c
        LEFT JOIN channel_reads cr ON cr.channel_id = c.id AND cr.user_id = $2
        WHERE c.is_archived = false
@@ -96,6 +97,26 @@ chatRouter.delete('/channels/:id', requireAuth(['admin']), async (req, res) => {
   } catch {
     res.status(500).json(err('Interner Fehler'))
   }
+})
+
+// POST /api/chat/channels/:id/avatar — upload channel photo (admin/trainer)
+chatRouter.post('/channels/:id/avatar', requireAuth(['admin', 'trainer']), uploadAvatar.single('avatar'), async (req, res) => {
+  if (!req.file) { res.status(400).json(err('Kein Bild hochgeladen')); return }
+  try {
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`
+    const { rows: [existing] } = await pool.query('SELECT avatar_url FROM channels WHERE id = $1', [req.params.id])
+    if (!existing) { res.status(404).json(err('Channel nicht gefunden')); return }
+    if (existing.avatar_url) {
+      const old = path.join(__dirname, '../..', existing.avatar_url)
+      if (fs.existsSync(old)) fs.unlinkSync(old)
+    }
+    const { rows: [ch] } = await pool.query(
+      `UPDATE channels SET avatar_url = $1 WHERE id = $2
+       RETURNING id, name, description, min_role, created_by, is_archived, created_at, avatar_url`,
+      [avatarUrl, req.params.id],
+    )
+    res.json(ok(ch))
+  } catch { res.status(500).json(err('Interner Fehler')) }
 })
 
 // POST /api/chat/channels/:id/members — add member (admin/trainer)

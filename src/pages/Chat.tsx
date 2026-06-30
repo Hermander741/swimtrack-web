@@ -47,6 +47,10 @@ export function Chat() {
     setActiveChannel(ch.id)
   }
 
+  function handleChannelUpdated(ch: Channel) {
+    setChannels(prev => prev.map(c => c.id === ch.id ? ch : c))
+  }
+
   function handleEdit(msg: Message) {
     setEditingMsg(msg)
     setEditContent(msg.content ?? '')
@@ -82,6 +86,7 @@ export function Chat() {
             activeChannelId={activeChannelId}
             onSelect={id => { setReplyTo(null); setEditingMsg(null); setActiveChannel(id) }}
             onChannelCreated={handleChannelCreated}
+            onChannelUpdated={handleChannelUpdated}
           />
         </div>
 
@@ -91,7 +96,7 @@ export function Chat() {
             <>
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
                 <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 text-sm">←</button>
-                <span className="text-white font-semibold">#{activeChannel.name}</span>
+                <span className="text-white font-semibold">{activeChannel.name}</span>
                 {activeChannel.description && (
                   <span className="text-slate-400 text-sm truncate hidden md:block">{activeChannel.description}</span>
                 )}
@@ -157,7 +162,7 @@ export function Chat() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-slate-400 text-sm">Channel auswählen</p>
+              <p className="text-slate-400 text-sm">Chat auswählen</p>
             </div>
           )}
         </div>
