@@ -1,5 +1,8 @@
 import { precacheAndRoute } from 'workbox-precaching'
 
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => event.waitUntil(clients.claim()))
+
 precacheAndRoute(self.__WB_MANIFEST)
 
 self.addEventListener('push', (event) => {
