@@ -1,12 +1,28 @@
 import { Router } from 'express'
 import path from 'path'
 import fs from 'fs'
+import sharp from 'sharp'
 import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import { userCanAccessChannel } from '../utils/channelAccess'
 import { chatUpload, chatUploadDir, SIZE_LIMITS } from '../middleware/uploadChat'
 import { uploadAvatar } from '../middleware/upload'
+
+const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+async function compressChatImage(filePath: string, mime: string): Promise<void> {
+  const tmpPath = filePath + '.tmp'
+  try {
+    const pipeline = sharp(filePath).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+    if (mime === 'image/jpeg') await pipeline.jpeg({ quality: 82, progressive: true }).toFile(tmpPath)
+    else if (mime === 'image/png') await pipeline.png({ compressionLevel: 8 }).toFile(tmpPath)
+    else await pipeline.webp({ quality: 82 }).toFile(tmpPath)
+    fs.renameSync(tmpPath, filePath)
+  } catch {
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
+  }
+}
 
 export const chatRouter = Router()
 
@@ -265,10 +281,15 @@ chatRouter.post('/channels/:id/attachments', requireAuth(), (req, res) => {
         res.status(400).json(err('Datei zu groß')); return
       }
 
+      if (IMAGE_MIMES.has(mime)) {
+        await compressChatImage(req.file.path, mime)
+      }
+
+      const finalSize = fs.statSync(req.file.path).size
       const { rows } = await pool.query<{ id: string }>(
         `INSERT INTO message_attachments (message_id, filename, original_name, mime_type, size_bytes)
          VALUES (NULL, $1, $2, $3, $4) RETURNING id`,
-        [req.file.filename, req.file.originalname, mime, req.file.size],
+        [req.file.filename, req.file.originalname, mime, finalSize],
       )
       res.status(201).json(ok({ attachmentId: rows[0].id }))
     } catch {

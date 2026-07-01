@@ -13,6 +13,7 @@
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
+    "@types/sharp": "^0.31.1",
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.0.0",
@@ -28,6 +29,7 @@
     "node-cron": "^4.5.0",
     "pg": "^8.22.0",
     "resend": "^6.16.0",
+    "sharp": "^0.35.2",
     "socket.io": "^4.8.3",
     "web-push": "^3.6.7"
   },

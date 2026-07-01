@@ -1,12 +1,14 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import sharp from 'sharp'
 import { pool } from '../db/pool'
 import { requireAuth } from '../middleware/auth'
 import { ok, err } from '../types'
 import type { Role, User } from '../types'
-import { uploadAvatar, uploadDir } from '../middleware/upload'
+import { uploadAvatar, uploadDir, avatarDir } from '../middleware/upload'
 
 export const usersRouter = Router()
 
@@ -33,9 +35,16 @@ usersRouter.get('/', requireAuth(['admin', 'trainer']), async (_req, res) => {
 })
 
 usersRouter.post('/me/avatar', requireAuth(), uploadAvatar.single('avatar'), async (req, res) => {
-  if (!req.file) { res.status(400).json(err('Kein Bild hochgeladen')); return }
-  const avatarUrl = `/uploads/avatars/${req.file.filename}`
+  if (!req.file?.buffer) { res.status(400).json(err('Kein Bild hochgeladen')); return }
+  const filename = `${crypto.randomUUID()}.jpg`
+  const filePath = path.join(avatarDir, filename)
   try {
+    await sharp(req.file.buffer)
+      .resize(400, 400, { fit: 'cover', position: 'attention' })
+      .jpeg({ quality: 80, progressive: true })
+      .toFile(filePath)
+
+    const avatarUrl = `/uploads/avatars/${filename}`
     const { rows: [old] } = await pool.query<{ avatar_url?: string }>(
       'SELECT avatar_url FROM users WHERE id = $1', [req.user!.id],
     )
@@ -50,6 +59,7 @@ usersRouter.post('/me/avatar', requireAuth(), uploadAvatar.single('avatar'), asy
     )
     res.json(ok(rows[0]))
   } catch {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
     res.status(500).json(err('Interner Fehler'))
   }
 })

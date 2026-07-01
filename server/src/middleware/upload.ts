@@ -24,17 +24,12 @@ export const upload = multer({
   },
 })
 
-const avatarDir = path.join(uploadDir, 'avatars')
+export const avatarDir = path.join(uploadDir, 'avatars')
 if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true })
 
-const avatarStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, avatarDir),
-  filename: (_req, _file, cb) => cb(null, `${crypto.randomUUID()}.jpg`),
-})
-
 export const uploadAvatar = multer({
-  storage: avatarStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) cb(null, true)
     else cb(new Error('Nur JPEG, PNG oder WebP erlaubt'))
