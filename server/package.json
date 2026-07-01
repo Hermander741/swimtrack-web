@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.0.0",
