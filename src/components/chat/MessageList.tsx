@@ -42,14 +42,21 @@ export function MessageList({
   const topRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const atBottom = useRef(true)
+  const prevLen = useRef(0)
+  // Keep latest onMarkRead in a ref so it never triggers the effect
+  const onMarkReadRef = useRef(onMarkRead)
+  useEffect(() => { onMarkReadRef.current = onMarkRead })
 
   useEffect(() => {
     if (atBottom.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // instant on initial load (many messages), smooth when a single new one arrives
+      const behavior = messages.length - prevLen.current > 1 ? 'instant' : 'smooth'
+      bottomRef.current?.scrollIntoView({ behavior })
     }
+    prevLen.current = messages.length
     const last = messages[messages.length - 1]
-    if (last) onMarkRead(last.id)
-  }, [messages, onMarkRead])
+    if (last) onMarkReadRef.current(last.id)
+  }, [messages])
 
   useEffect(() => {
     if (!topRef.current || !hasMore) return
