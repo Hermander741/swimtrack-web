@@ -6,10 +6,27 @@ import { apiRequest } from '../api/client'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Avatar } from '../components/ui/Avatar'
-import { Pin, ChevronRight } from 'lucide-react'
+import { Pin, ChevronRight, Newspaper } from 'lucide-react'
 import type { TrainingSession } from '../types'
 
 const DAYS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/^#+\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+}
+
+function relativeDate(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400_000)
+  if (days === 0) return 'Heute'
+  if (days === 1) return 'Gestern'
+  if (days < 7) return `vor ${days} Tagen`
+  return new Date(iso).toLocaleDateString('de-AT', { day: 'numeric', month: 'short' })
+}
 
 function formatSessionDate(date: string, start_time: string): string {
   const d = new Date(`${date}T${start_time}`)
@@ -114,7 +131,7 @@ export function Dashboard() {
       </Link>
 
 
-      {/* News preview */}
+      {/* News */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-semibold text-white">News</p>
@@ -124,32 +141,65 @@ export function Dashboard() {
         </div>
 
         {newsPosts === null ? (
-          <p className="text-slate-400 text-sm py-4">Lade…</p>
+          <p className="text-slate-400 text-sm py-4 animate-pulse">Lade…</p>
         ) : newsPosts.length === 0 ? (
-          <Card>
-            <p className="text-slate-400 text-sm text-center py-2">Noch keine News vorhanden</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {newsPosts.map(post => (
-              <Link to="/news" key={post.id}>
-                <Card className="hover:border-white/20 transition-colors">
-                  <div className="flex items-start gap-2 mb-2">
-                    {post.pinned && <Pin className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />}
-                    <p className="text-white text-sm font-semibold leading-snug">{post.title}</p>
-                  </div>
-                  <p className="text-slate-300 text-sm leading-relaxed line-clamp-4">
-                    {post.content.replace(/\*\*/g, '')}
-                  </p>
-                  <p className="text-slate-500 text-xs mt-2.5">
-                    {post.author_name && `${post.author_name} · `}
-                    {new Date(post.created_at).toLocaleDateString('de-AT', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                </Card>
-              </Link>
-            ))}
+          <div className="text-center py-10">
+            <Newspaper size={32} className="mx-auto mb-2 text-slate-700" />
+            <p className="text-slate-500 text-sm">Noch keine News</p>
           </div>
-        )}
+        ) : (() => {
+          const sorted = [...newsPosts].sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1))
+          const featured = sorted[0]
+          const compact = sorted.slice(1)
+          return (
+            <>
+              {/* Featured post */}
+              <Link to="/news">
+                <div className={`rounded-2xl border overflow-hidden mb-3 transition-colors active:opacity-80 ${
+                  featured.pinned
+                    ? 'bg-gradient-to-br from-teal-500/10 to-sky-500/5 border-teal-500/25'
+                    : 'glass border-white/10 hover:border-white/20'
+                }`}>
+                  {featured.pinned && (
+                    <div className="flex items-center gap-1.5 px-4 pt-3 pb-0">
+                      <Pin size={10} className="text-teal-400" />
+                      <span className="text-teal-400 text-[10px] font-semibold uppercase tracking-wider">Angeheftet</span>
+                    </div>
+                  )}
+                  <div className="px-4 py-3">
+                    <p className="text-white font-semibold text-sm leading-snug mb-1.5 line-clamp-2">{featured.title}</p>
+                    <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
+                      {stripMarkdown(featured.content)}
+                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-slate-500 text-xs">
+                        {featured.author_name && `${featured.author_name} · `}{relativeDate(featured.created_at)}
+                      </p>
+                      <span className="text-teal-400 text-xs font-medium">Lesen →</span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Compact list */}
+              {compact.length > 0 && (
+                <div className="glass rounded-2xl overflow-hidden divide-y divide-white/5">
+                  {compact.map(post => (
+                    <Link
+                      key={post.id}
+                      to="/news"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 active:bg-white/10 transition-colors"
+                    >
+                      {post.pinned && <Pin size={10} className="text-teal-400 shrink-0" />}
+                      <p className="flex-1 text-white text-sm truncate">{post.title}</p>
+                      <p className="text-slate-500 text-xs shrink-0">{relativeDate(post.created_at)}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
     </PageShell>
   )

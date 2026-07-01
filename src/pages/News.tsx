@@ -189,7 +189,7 @@ export function News() {
       fab={isTrainer ? (
         <button
           onClick={() => setPostForm({})}
-          className="w-14 h-14 bg-teal-500 hover:bg-teal-400 rounded-full flex items-center justify-center shadow-lg shadow-teal-500/30 transition-colors"
+          className="w-14 h-14 bg-gradient-to-r from-teal-500 to-sky-500 rounded-full flex items-center justify-center shadow-lg shadow-teal-500/30 active:scale-95 transition-transform"
         >
           <Plus className="w-6 h-6 text-white" />
         </button>
@@ -239,7 +239,7 @@ export function News() {
       {/* News posts */}
       {posts.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">📰</p>
+          <Newspaper size={40} className="mx-auto mb-3 text-slate-700" />
           <p className="text-slate-400 text-sm">Noch keine News vorhanden</p>
         </div>
       ) : (
