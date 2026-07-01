@@ -36,15 +36,33 @@ chatRouter.get('/channels', requireAuth(), async (req, res) => {
     const rank = roleRank[user.role] ?? 1
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.description, c.min_role, c.created_by, c.is_archived, c.created_at,
-              c.avatar_url, cr.last_message_id
+              c.avatar_url, cr.last_message_id,
+              lm.content        AS last_message_content,
+              lm.created_at     AS last_message_at,
+              lm.sender_name    AS last_message_sender,
+              lm.deleted_for_all AS last_message_deleted,
+              COALESCE((
+                SELECT COUNT(*)::int FROM messages m2
+                WHERE m2.channel_id = c.id
+                  AND m2.created_at > COALESCE(cr.read_at, '-infinity'::timestamptz)
+                  AND NOT COALESCE(m2.deleted_for_all, false)
+              ), 0) AS unread_count
        FROM channels c
        LEFT JOIN channel_reads cr ON cr.channel_id = c.id AND cr.user_id = $2
+       LEFT JOIN LATERAL (
+         SELECT m.content, m.created_at, u.name AS sender_name, m.deleted_for_all
+         FROM messages m
+         LEFT JOIN users u ON u.id = m.sender_id
+         WHERE m.channel_id = c.id
+         ORDER BY m.created_at DESC
+         LIMIT 1
+       ) lm ON true
        WHERE c.is_archived = false
          AND (
            $1 >= (CASE c.min_role WHEN 'admin' THEN 4 WHEN 'trainer' THEN 3 WHEN 'eltern' THEN 2 ELSE 1 END)
            OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
          )
-       ORDER BY c.created_at ASC`,
+       ORDER BY COALESCE(lm.created_at, c.created_at) DESC`,
       [rank, user.id],
     )
     res.json(ok(rows))

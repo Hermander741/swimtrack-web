@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import type { Message } from '../../types'
 import { uploadAttachment } from '../../api/chat'
 
+const QUICK_EMOJIS = ['😊','😂','❤️','👍','🙏','🔥','😮','😢','🎉','💪','👏','🤔']
+
 interface Props {
   channelId: string
   replyTo: Message | null
@@ -21,6 +23,7 @@ interface PendingAttachment {
 export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypingStart, onTypingStop }: Props) {
   const [content, setContent] = useState('')
   const [pending, setPending] = useState<PendingAttachment[]>([])
+  const [showEmoji, setShowEmoji] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastTyping = useRef(0)
@@ -83,8 +86,23 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
     setPending(prev => prev.filter(p => p.file !== file))
   }
 
+  function insertEmoji(emoji: string) {
+    setContent(prev => prev + emoji)
+    setShowEmoji(false)
+    textareaRef.current?.focus()
+  }
+
   return (
     <div className="border-t border-white/10 px-4 py-3 space-y-2">
+      {showEmoji && (
+        <div className="flex flex-wrap gap-2 pb-1">
+          {QUICK_EMOJIS.map(e => (
+            <button key={e} onClick={() => insertEmoji(e)} className="text-2xl hover:scale-125 transition-transform active:scale-110">
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
       {replyTo && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border-l-2 border-teal-500">
           <div className="flex-1 min-w-0">
@@ -118,6 +136,12 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
           accept="image/*,video/mp4,video/quicktime,application/pdf"
           onChange={handleFileChange}
         />
+        <button
+          onClick={() => setShowEmoji(v => !v)}
+          className={`text-xl transition-colors mb-1 ${showEmoji ? 'text-teal-400' : 'text-slate-400 hover:text-teal-400'}`}
+        >
+          😊
+        </button>
         <button
           onClick={() => fileInputRef.current?.click()}
           className="text-slate-400 hover:text-teal-400 text-xl transition-colors mb-1"

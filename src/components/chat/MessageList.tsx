@@ -71,12 +71,19 @@ export function MessageList({
     if (res.ok) onPinned(res.data)
   }, [channelId, onPinned])
 
-  const groups: { label: string; messages: Message[] }[] = []
-  for (const msg of messages) {
+  const groups: { label: string; messages: { msg: Message; isGrouped: boolean }[] }[] = []
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    const prev = messages[i - 1]
     const label = formatDateLabel(msg.created_at)
+    const isGrouped = !!prev
+      && prev.sender_id === msg.sender_id
+      && !prev.deleted_for_all
+      && new Date(msg.created_at).getTime() - new Date(prev.created_at).getTime() < 2 * 60 * 1000
+      && formatDateLabel(prev.created_at) === label
     const last = groups[groups.length - 1]
-    if (last?.label === label) last.messages.push(msg)
-    else groups.push({ label, messages: [msg] })
+    if (last?.label === label) last.messages.push({ msg, isGrouped })
+    else groups.push({ label, messages: [{ msg, isGrouped }] })
   }
 
   return (
@@ -90,15 +97,16 @@ export function MessageList({
         {hasMore && <div ref={topRef} className="h-4" />}
         {groups.map(group => (
           <div key={group.label}>
-            <div className="flex items-center gap-3 px-4 py-2">
+            <div className="flex items-center gap-3 px-4 py-3">
               <div className="flex-1 h-px bg-white/10" />
-              <span className="text-slate-500 text-xs">{group.label}</span>
+              <span className="text-slate-500 text-xs bg-ocean-950 px-2">{group.label}</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
-            {group.messages.map(msg => (
+            {group.messages.map(({ msg, isGrouped }) => (
               <MessageBubble
                 key={msg.id}
                 message={msg}
+                isGrouped={isGrouped}
                 onReply={onReply}
                 onEdit={onEdit}
                 onDelete={onDelete}

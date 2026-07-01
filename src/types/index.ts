@@ -137,6 +137,11 @@ export interface Channel {
   created_at: string
   avatar_url: string | null
   last_message_id?: string | null
+  last_message_content?: string | null
+  last_message_at?: string | null
+  last_message_sender?: string | null
+  last_message_deleted?: boolean | null
+  unread_count?: number
 }
 
 export interface MessageAttachment {

@@ -7,7 +7,12 @@ import { useSocket } from '../hooks/useSocket'
 import { useChat } from '../hooks/useChat'
 import { useAuth } from '../hooks/useAuth'
 import { subscribePush } from '../api/push'
+import { BASE } from '../api/client'
 import type { Channel, Message } from '../types'
+
+function getInitials(name: string) {
+  return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
+}
 
 export function Chat() {
   const { user } = useAuth()
@@ -95,11 +100,19 @@ export function Chat() {
           {activeChannelId && activeChannel ? (
             <>
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
-                <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 text-sm">←</button>
-                <span className="text-white font-semibold">{activeChannel.name}</span>
-                {activeChannel.description && (
-                  <span className="text-slate-400 text-sm truncate hidden md:block">{activeChannel.description}</span>
-                )}
+                <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 font-medium px-1">←</button>
+                <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/60">
+                  {activeChannel.avatar_url
+                    ? <img src={`${BASE}${activeChannel.avatar_url}`} alt={activeChannel.name} className="w-full h-full object-cover" />
+                    : getInitials(activeChannel.name)
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold truncate">{activeChannel.name}</p>
+                  {activeChannel.description && (
+                    <p className="text-slate-400 text-xs truncate">{activeChannel.description}</p>
+                  )}
+                </div>
               </div>
 
               {editingMsg && (

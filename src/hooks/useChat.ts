@@ -37,6 +37,23 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
         if (existing.find(m => m.id === msg.id)) return prev
         return { ...prev, [msg.channel_id]: [...existing, msg] }
       })
+      setChannels(prev => {
+        const updated = prev.map(ch =>
+          ch.id !== msg.channel_id ? ch : {
+            ...ch,
+            last_message_content: msg.deleted_for_all ? null : msg.content,
+            last_message_at: msg.created_at,
+            last_message_sender: msg.sender_name,
+            last_message_deleted: msg.deleted_for_all,
+            unread_count: (ch.unread_count ?? 0) + 1,
+          }
+        )
+        return [...updated].sort((a, b) => {
+          const ta = a.last_message_at ?? a.created_at
+          const tb = b.last_message_at ?? b.created_at
+          return new Date(tb).getTime() - new Date(ta).getTime()
+        })
+      })
     }
 
     const onMessageEdited = (data: { messageId: string; content: string; editedAt: string }) => {
@@ -183,6 +200,7 @@ export function useChat(socketRef: React.MutableRefObject<Socket | null>) {
 
   const markRead = useCallback((channelId: string, lastMessageId: string) => {
     socketRef.current?.emit('mark-read', { channelId, lastMessageId })
+    setChannels(prev => prev.map(ch => ch.id === channelId ? { ...ch, unread_count: 0 } : ch))
   }, [socketRef])
 
   return {

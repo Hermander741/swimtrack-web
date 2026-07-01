@@ -7,6 +7,7 @@ import { AttachmentPreview } from './AttachmentPreview'
 
 interface Props {
   message: Message
+  isGrouped?: boolean
   onReply: (msg: Message) => void
   onEdit: (msg: Message) => void
   onDelete: (msgId: string, forAll: boolean) => void
@@ -26,7 +27,7 @@ function getInitials(name: string | null) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, onReact, onRemoveReact }: Props) {
+export function MessageBubble({ message: msg, isGrouped, onReply, onEdit, onDelete, onPin, onReact, onRemoveReact }: Props) {
   const { user, isTrainer } = useAuth()
   const navigate = useNavigate()
   const isOwn = msg.sender_id === user?.id
@@ -56,7 +57,7 @@ export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, 
 
   return (
     <div
-      className={`flex ${isOwn ? 'flex-row-reverse' : 'flex-row'} gap-2 px-4 py-1 group select-none`}
+      className={`flex ${isOwn ? 'flex-row-reverse' : 'flex-row'} gap-2 px-4 ${isGrouped ? 'pt-0.5 pb-0' : 'pt-2 pb-0'} group select-none`}
       style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
       onContextMenu={e => { e.preventDefault(); setShowActions(true) }}
       onTouchStart={startLongPress}
@@ -64,23 +65,27 @@ export function MessageBubble({ message: msg, onReply, onEdit, onDelete, onPin, 
       onTouchMove={cancelLongPress}
     >
       {!isOwn && (
-        <div
-          className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden cursor-pointer"
-          style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}
-          onClick={() => msg.sender_id && navigate(`/schwimmer/${msg.sender_id}`)}
-        >
-          {msg.sender_avatar_url ? (
-            <img src={`${BASE}${msg.sender_avatar_url}`} alt={msg.sender_name ?? ''} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
-              {getInitials(msg.sender_name)}
-            </div>
-          )}
-        </div>
+        isGrouped ? (
+          <div className="w-8 flex-shrink-0" />
+        ) : (
+          <div
+            className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden cursor-pointer"
+            style={{ backgroundColor: msg.sender_avatar_color ?? '#0EA5E9' }}
+            onClick={() => msg.sender_id && navigate(`/schwimmer/${msg.sender_id}`)}
+          >
+            {msg.sender_avatar_url ? (
+              <img src={`${BASE}${msg.sender_avatar_url}`} alt={msg.sender_name ?? ''} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
+                {getInitials(msg.sender_name)}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       <div className={`max-w-xs md:max-w-md ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
-        {!isOwn && (
+        {!isOwn && !isGrouped && (
           <p className="text-slate-400 text-xs mb-1 px-1">{msg.sender_name}</p>
         )}
 

@@ -18,6 +18,18 @@ function getInitials(name: string) {
   return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
+function formatTime(iso: string) {
+  const d = new Date(iso)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })
+  }
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'Gestern'
+  return d.toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit' })
+}
+
 function ChannelAvatar({ channel, canEdit, onUpdated }: {
   channel: Channel
   canEdit: boolean
@@ -55,9 +67,8 @@ function ChannelAvatar({ channel, canEdit, onUpdated }: {
   return (
     <>
       <div
-        className={`w-9 h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/40 relative ${canEdit ? 'cursor-pointer' : ''}`}
+        className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold text-white overflow-hidden bg-teal-600/60 relative ${canEdit ? 'cursor-pointer' : ''}`}
         onClick={e => { if (canEdit) { e.stopPropagation(); inputRef.current?.click() } }}
-        title={canEdit ? 'Foto ändern' : undefined}
       >
         {uploading ? (
           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -87,30 +98,58 @@ export function ChannelList({ channels, activeChannelId, onSelect, onChannelCrea
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto py-2">
+      <div className="flex-1 overflow-y-auto">
         {channels.length === 0 && (
-          <p className="text-slate-400 text-sm px-4 py-6">Keine Chats vorhanden</p>
+          <p className="text-slate-400 text-sm px-4 py-8 text-center">Keine Chats vorhanden</p>
         )}
-        {channels.map(ch => (
-          <button
-            key={ch.id}
-            onClick={() => onSelect(ch.id)}
-            className={[
-              'w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors',
-              activeChannelId === ch.id
-                ? 'bg-teal-500/20 text-teal-400'
-                : 'text-slate-300 hover:bg-white/5',
-            ].join(' ')}
-          >
-            <ChannelAvatar
-              channel={ch}
-              canEdit={isTrainer}
-              onUpdated={onChannelUpdated}
-            />
-            <span className="flex-1 text-sm font-medium truncate">{ch.name}</span>
-          </button>
-        ))}
+        {channels.map(ch => {
+          const unread = ch.unread_count ?? 0
+          const isActive = activeChannelId === ch.id
+          return (
+            <button
+              key={ch.id}
+              onClick={() => onSelect(ch.id)}
+              className={[
+                'w-full text-left px-4 py-3 flex items-center gap-3 border-b border-white/5 transition-colors active:bg-white/10',
+                isActive ? 'bg-teal-500/10' : 'hover:bg-white/5',
+              ].join(' ')}
+            >
+              <ChannelAvatar channel={ch} canEdit={isTrainer} onUpdated={onChannelUpdated} />
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`font-semibold truncate ${isActive ? 'text-teal-400' : 'text-white'}`}>
+                    {ch.name}
+                  </span>
+                  {ch.last_message_at && (
+                    <span className={`text-xs flex-shrink-0 ${unread > 0 ? 'text-teal-400 font-medium' : 'text-slate-500'}`}>
+                      {formatTime(ch.last_message_at)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2 mt-0.5">
+                  <p className="text-sm text-slate-400 truncate">
+                    {ch.last_message_deleted ? (
+                      <span className="italic text-slate-500">Nachricht gelöscht</span>
+                    ) : ch.last_message_content ? (
+                      ch.last_message_content
+                    ) : (
+                      <span className="text-slate-500 text-xs">{ch.description ?? 'Kein Nachrichten'}</span>
+                    )}
+                  </p>
+                  {unread > 0 && (
+                    <span className="flex-shrink-0 min-w-5 h-5 px-1 flex items-center justify-center rounded-full bg-teal-500 text-white text-xs font-bold">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          )
+        })}
       </div>
+
       {isTrainer && (
         <div className="p-4 border-t border-white/10">
           <button
@@ -121,6 +160,7 @@ export function ChannelList({ channels, activeChannelId, onSelect, onChannelCrea
           </button>
         </div>
       )}
+
       {showCreate && (
         <CreateChannelModal
           onClose={() => setShowCreate(false)}
