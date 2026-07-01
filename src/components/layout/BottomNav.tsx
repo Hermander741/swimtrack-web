@@ -13,7 +13,7 @@ export function BottomNav() {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/8"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
     >
       <div className="flex items-center justify-around px-2 pt-2 pb-2">
         {TABS.map(tab => {
