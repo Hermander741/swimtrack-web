@@ -14,6 +14,7 @@
 
 :root {
   --vvh: 100dvh;
+  --vvt: 0px;
 }
 
 @layer base {
