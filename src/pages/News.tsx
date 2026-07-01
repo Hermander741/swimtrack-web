@@ -5,7 +5,7 @@ import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Plus, Pencil, Trash2, Pin, X, ChevronDown, ChevronUp, Quote } from 'lucide-react'
+import { Plus, Pencil, Trash2, Pin, X, ChevronDown, ChevronUp, Quote, Newspaper } from 'lucide-react'
 
 interface NewsPost {
   id: string
