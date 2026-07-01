@@ -77,7 +77,7 @@ export function Chat() {
   }
 
   return (
-    <PageShell title="Chat" fullHeight>
+    <PageShell title="Chat" fullHeight hideNav={!!activeChannelId}>
       <div className="flex flex-1 min-h-0">
         {/* Channel sidebar */}
         <div className={`w-full md:w-72 md:block border-r border-white/10 ${activeChannelId ? 'hidden md:block' : 'block'}`}>

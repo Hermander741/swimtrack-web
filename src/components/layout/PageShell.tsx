@@ -8,9 +8,10 @@ interface PageShellProps {
   fab?: React.ReactNode
   children: React.ReactNode
   fullHeight?: boolean
+  hideNav?: boolean
 }
 
-export function PageShell({ title, topBarRight, fab, children, fullHeight }: PageShellProps) {
+export function PageShell({ title, topBarRight, fab, children, fullHeight, hideNav }: PageShellProps) {
   return (
     <div className="bg-ocean-950 flex flex-col" style={{ height: 'var(--vvh, 100dvh)' }}>
       <TopBar title={title} right={topBarRight} />
@@ -23,7 +24,7 @@ export function PageShell({ title, topBarRight, fab, children, fullHeight }: Pag
       {fab && (
         <div className="fixed bottom-6 right-4 z-40" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}>{fab}</div>
       )}
-      <BottomNav />
+      {!hideNav && <BottomNav />}
     </div>
   )
 }
