@@ -22,9 +22,10 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* iOS auto-zoom prevention: inputs must be >= 16px */
+  /* iOS auto-zoom prevention: font-size must be >= 16px. !important so Tailwind
+     utility classes (e.g. text-sm = 14px) cannot override this. */
   input, textarea, select {
-    font-size: max(16px, 1em);
+    font-size: max(16px, 1em) !important;
   }
 
   html {

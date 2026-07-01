@@ -131,7 +131,7 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
           onKeyDown={handleKeyDown}
           placeholder="Nachricht schreiben…"
           rows={1}
-          className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-teal-500/50 resize-none overflow-hidden"
+          className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-base placeholder-slate-500 focus:outline-none focus:border-teal-500/50 resize-none overflow-hidden"
         />
         <button
           onClick={handleSend}
