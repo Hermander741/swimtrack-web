@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { listUsers } from '../api/users'
 import { listSessions } from '../api/training'
 import { apiRequest } from '../api/client'
 import { PageShell } from '../components/layout/PageShell'
@@ -39,16 +38,12 @@ interface Quote {
 }
 
 export function Dashboard() {
-  const { user, isTrainer } = useAuth()
-  const [memberCount, setMemberCount] = useState<number | null>(null)
+  const { user } = useAuth()
   const [nextSession, setNextSession] = useState<TrainingSession | null | undefined>(undefined)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [newsPosts, setNewsPosts] = useState<NewsPost[] | null>(null)
 
   useEffect(() => {
-    if (isTrainer) {
-      listUsers().then(res => { if (res.ok) setMemberCount(res.data.length) })
-    }
     const today = new Date().toISOString().slice(0, 10)
     const in30 = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
     listSessions(today, in30).then(res => {
@@ -66,7 +61,7 @@ export function Dashboard() {
       if (res.ok) setNewsPosts(res.data.slice(0, 3))
       else setNewsPosts([])
     })
-  }, [isTrainer])
+  }, [])
 
   return (
     <PageShell
@@ -118,23 +113,6 @@ export function Dashboard() {
         </Card>
       </Link>
 
-      {/* Trainer stats */}
-      {isTrainer && memberCount !== null && (
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <Link to="/mitglieder">
-            <Card>
-              <p className="text-3xl font-bold text-teal-400">{memberCount}</p>
-              <p className="text-slate-400 text-sm mt-1">Mitglieder</p>
-            </Card>
-          </Link>
-          <Link to="/dokumente">
-            <Card>
-              <p className="text-3xl font-bold text-sky-400">📁</p>
-              <p className="text-slate-400 text-sm mt-1">Dokumente</p>
-            </Card>
-          </Link>
-        </div>
-      )}
 
       {/* News preview */}
       <div>

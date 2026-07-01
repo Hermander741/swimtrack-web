@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Camera, Users, Bell, BellOff } from 'lucide-react'
+import { Camera, Users, FileText, Bell, BellOff, KeyRound, LogOut, Calendar, ChevronRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
@@ -165,54 +165,62 @@ export function Profil() {
   if (!user) return null
 
   return (
-    <PageShell title="Profil">
+    <PageShell title="Mehr">
       {cropSrc && (
         <ImageCropModal imageSrc={cropSrc} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
       )}
-      {/* Profile header */}
+
+      {/* ── Profil-Header ─────────────────────────────── */}
       <div className="flex flex-col items-center py-6 mb-6">
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
-        <button
-          className="relative group"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={avatarUploading}
-        >
+        <button className="relative group" onClick={() => fileInputRef.current?.click()} disabled={avatarUploading}>
           <Avatar name={user.name} color={user.avatar_color} imageUrl={user.avatar_url} size="lg" />
-          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity">
             {avatarUploading
               ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <Camera size={20} className="text-white" />}
           </div>
         </button>
         <h2 className="text-xl font-bold text-white mt-3">{user.name}</h2>
-        <p className="text-slate-400 text-sm mt-1">{user.email}</p>
+        <p className="text-slate-400 text-sm mt-0.5">{user.email}</p>
         {avatarError && <p className="text-red-400 text-xs mt-1">{avatarError}</p>}
-        <div className="mt-2">
-          <Badge role={user.role} />
-        </div>
+        <div className="mt-2"><Badge role={user.role} /></div>
       </div>
 
-      {/* Avatar color picker */}
+      {/* ── Avatar-Farbe ──────────────────────────────── */}
       <Card className="mb-4">
-        <p className="text-sm font-medium text-white mb-3">Avatar-Farbe</p>
+        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Avatar-Farbe</p>
         <div className="flex gap-3 flex-wrap">
           {AVATAR_COLORS.map(color => (
-            <button
-              key={color}
-              onClick={() => handleColorChange(color)}
+            <button key={color} onClick={() => handleColorChange(color)}
               className="w-8 h-8 rounded-full transition-transform active:scale-95"
-              style={{
-                backgroundColor: color,
-                outline: user.avatar_color === color ? `2px solid ${color}` : 'none',
-                outlineOffset: '2px',
-              }}
+              style={{ backgroundColor: color, outline: user.avatar_color === color ? `2px solid ${color}` : 'none', outlineOffset: '2px' }}
             />
           ))}
         </div>
       </Card>
 
-      {/* Meine Kinder — for parents */}
-      {user?.role === 'eltern' && myChildren.length > 0 && (
+      {/* ── Administration (Trainer / Admin) ──────────── */}
+      {(isAdmin || isTrainer) && (
+        <Card className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Administration</p>
+          <div className="divide-y divide-white/5">
+            <Link to="/mitglieder" className="flex items-center gap-3 py-3 text-white hover:text-teal-400 transition-colors">
+              <Users size={18} className="text-teal-400 shrink-0" />
+              <span className="text-sm font-medium flex-1">Mitglieder verwalten</span>
+              <ChevronRight size={16} className="text-slate-500" />
+            </Link>
+            <Link to="/dokumente" className="flex items-center gap-3 py-3 text-white hover:text-teal-400 transition-colors">
+              <FileText size={18} className="text-sky-400 shrink-0" />
+              <span className="text-sm font-medium flex-1">Dokumente</span>
+              <ChevronRight size={16} className="text-slate-500" />
+            </Link>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Meine Kinder (Eltern) ─────────────────────── */}
+      {user.role === 'eltern' && myChildren.length > 0 && (
         <Card className="mb-4">
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Meine Kinder</p>
           <div className="space-y-2">
@@ -227,75 +235,114 @@ export function Profil() {
         </Card>
       )}
 
-      {/* Admin / Trainer section */}
-      {(isAdmin || isTrainer) && (
-        <Card className="mb-4">
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Administration</p>
-          <Link to="/mitglieder" className="flex items-center gap-3 py-2 text-white hover:text-teal-400 transition-colors">
-            <Users size={18} className="text-teal-400 shrink-0" />
-            <span className="text-sm font-medium">Mitglieder verwalten</span>
-          </Link>
-        </Card>
-      )}
-
-      {/* Push notifications */}
-      {pushPermission !== 'unsupported' && (
-        <Card className="mb-4">
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Benachrichtigungen</p>
-          {pushPermission === 'granted' ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Bell size={18} className="text-teal-400 shrink-0" />
-                <div>
-                  <p className="text-white text-sm font-medium">Aktiv</p>
-                  <p className="text-slate-400 text-xs">Push-Benachrichtigungen eingeschaltet</p>
-                </div>
+      {/* ── Einstellungen ─────────────────────────────── */}
+      <Card className="mb-4">
+        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Einstellungen</p>
+        <div className="divide-y divide-white/5">
+          {/* myresults */}
+          <div className="py-3 space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-[18px] shrink-0 text-center text-slate-400 text-sm font-bold">M</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-white">myresults.eu Name</p>
+                <p className="text-xs text-slate-500">Für automatische Ergebnis-Importe</p>
               </div>
-              <button onClick={handleDisablePush} disabled={pushLoading}
-                className="text-xs text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-50 px-2 py-1">
-                Aus
-              </button>
             </div>
-          ) : pushPermission === 'denied' ? (
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <BellOff size={18} className="text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-white text-sm font-medium">Benachrichtigungen blockiert</p>
-                  <p className="text-slate-400 text-xs mt-0.5">
-                    Benötigt HTTPS + Erlaubnis in iOS-Einstellungen:<br />
-                    <span className="text-teal-400">Einstellungen → Mermaids → Mitteilungen → Erlauben</span>
-                  </p>
-                </div>
-              </div>
-              <button onClick={handleEnablePush} disabled={pushLoading}
-                className="w-full py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium disabled:opacity-50">
-                {pushLoading ? 'Bitte warten…' : 'Erneut versuchen'}
-              </button>
-            </div>
-          ) : (
-            <button onClick={handleEnablePush} disabled={pushLoading}
-              className="w-full flex items-center gap-3 py-2 text-white active:opacity-70 transition-opacity disabled:opacity-50">
-              <Bell size={18} className="text-teal-400 shrink-0" />
-              <div className="text-left">
-                <p className="text-sm font-medium">{pushLoading ? 'Bitte warten…' : 'Benachrichtigungen aktivieren'}</p>
-                <p className="text-slate-400 text-xs">Für Chat, Training und Dokument-Erinnerungen</p>
-              </div>
-              <span className="ml-auto text-slate-500 text-lg">›</span>
+            <input
+              type="text"
+              placeholder="NACHNAME Vorname (z.B. URBAN Herman)"
+              value={myresultsName}
+              onChange={e => { setMyresultsName(e.target.value); setMyresultsSaved(false) }}
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-teal-500"
+            />
+            <button onClick={handleSaveMyresults} disabled={myresultsSaving}
+              className="text-xs text-teal-400 hover:text-teal-300 disabled:opacity-50 transition-colors">
+              {myresultsSaved ? '✓ Gespeichert' : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
             </button>
-          )}
-        </Card>
-      )}
+          </div>
 
-      {/* Actions */}
-      <div className="space-y-3">
-        <Button variant="secondary" className="w-full" onClick={() => setShowPassword(true)}>
-          Passwort ändern
-        </Button>
-        <Button variant="danger" className="w-full" onClick={handleLogout}>
-          Abmelden
-        </Button>
-      </div>
+          {/* Push notifications */}
+          {pushPermission !== 'unsupported' && (
+            <div className="py-3">
+              {pushPermission === 'granted' ? (
+                <div className="flex items-center gap-3">
+                  <Bell size={18} className="text-teal-400 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-white">Push-Benachrichtigungen</p>
+                    <p className="text-xs text-slate-500">Aktiv</p>
+                  </div>
+                  <button onClick={handleDisablePush} disabled={pushLoading}
+                    className="text-xs text-red-400/70 hover:text-red-400 disabled:opacity-50 px-2 py-1">
+                    Aus
+                  </button>
+                </div>
+              ) : pushPermission === 'denied' ? (
+                <div className="flex items-start gap-3">
+                  <BellOff size={18} className="text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-white">Benachrichtigungen blockiert</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Einstellungen → Mermaids → Mitteilungen → Erlauben
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={handleEnablePush} disabled={pushLoading}
+                  className="w-full flex items-center gap-3 text-white active:opacity-70 disabled:opacity-50">
+                  <Bell size={18} className="text-teal-400 shrink-0" />
+                  <div className="text-left flex-1">
+                    <p className="text-sm font-medium">{pushLoading ? 'Bitte warten…' : 'Benachrichtigungen aktivieren'}</p>
+                    <p className="text-xs text-slate-500">Chat, Training und Dokument-Erinnerungen</p>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-500" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Passwort ändern */}
+          <button onClick={() => setShowPassword(true)}
+            className="w-full flex items-center gap-3 py-3 text-white hover:text-teal-400 active:opacity-70 transition-colors">
+            <KeyRound size={18} className="text-slate-400 shrink-0" />
+            <span className="text-sm font-medium flex-1 text-left">Passwort ändern</span>
+            <ChevronRight size={16} className="text-slate-500" />
+          </button>
+        </div>
+      </Card>
+
+      {/* ── Kalender ──────────────────────────────────── */}
+      <Card className="mb-4">
+        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Kalender</p>
+        <div className="flex items-center gap-3 mb-3">
+          <Calendar size={18} className="text-violet-400 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-white">Training abonnieren</p>
+            <p className="text-xs text-slate-500">In Outlook, Apple Calendar oder Google Calendar</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={handleCopyIcal} className="flex-1 text-xs py-2">
+            {icalCopied ? '✓ Kopiert' : 'Link kopieren'}
+          </Button>
+          {icalToken && (
+            <a href={icalUrl(icalToken.token)} download="mermaids-training.ics"
+              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold glass text-white hover:bg-white/10 transition-all">
+              .ics
+            </a>
+          )}
+        </div>
+        <button onClick={handleRegenerateIcal} disabled={icalLoading}
+          className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50">
+          {icalLoading ? 'Wird erneuert…' : 'Link zurücksetzen'}
+        </button>
+      </Card>
+
+      {/* ── Abmelden ──────────────────────────────────── */}
+      <button onClick={handleLogout}
+        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/15 transition-colors mb-6">
+        <LogOut size={18} className="shrink-0" />
+        <span className="text-sm font-medium">Abmelden</span>
+      </button>
 
       <Modal open={showPassword} onClose={handleClosePasswordModal} title="Passwort ändern">
         {pwSuccess ? (
@@ -311,55 +358,6 @@ export function Profil() {
           </form>
         )}
       </Modal>
-
-      <Card className="mb-4">
-        <h3 className="text-sm font-semibold text-white mb-1">Kalender abonnieren</h3>
-        <p className="text-xs text-slate-400 mb-3">
-          Deinen Trainingsplan in Outlook, Apple Calendar oder Google Calendar einbinden.
-        </p>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={handleCopyIcal} className="flex-1 text-xs py-2">
-            {icalCopied ? '✓ Kopiert' : 'Link kopieren'}
-          </Button>
-          {icalToken && (
-            <a
-              href={icalUrl(icalToken.token)}
-              download="mermaids-training.ics"
-              className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold glass text-white hover:bg-white/10 transition-all"
-            >
-              .ics herunterladen
-            </a>
-          )}
-        </div>
-        <button
-          onClick={handleRegenerateIcal}
-          disabled={icalLoading}
-          className="mt-2 text-xs text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
-        >
-          {icalLoading ? 'Wird erneuert…' : 'Link zurücksetzen'}
-        </button>
-      </Card>
-
-      <Card className="p-4 space-y-3">
-        <div>
-          <h3 className="text-white font-medium text-sm">myresults.eu</h3>
-          <p className="text-slate-500 text-xs mt-0.5">Dein Suchname für automatische Ergebnis-Importe</p>
-        </div>
-        <input
-          type="text"
-          placeholder="NACHNAME Vorname (z.B. URBAN Herman)"
-          value={myresultsName}
-          onChange={e => { setMyresultsName(e.target.value); setMyresultsSaved(false) }}
-          className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500"
-        />
-        <Button
-          onClick={handleSaveMyresults}
-          disabled={myresultsSaving}
-          variant="secondary"
-        >
-          {myresultsSaved ? '✓ Gespeichert' : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
-        </Button>
-      </Card>
     </PageShell>
   )
 }
