@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Camera, Users, FileText, Bell, BellOff, KeyRound, LogOut, Calendar, ChevronRight } from 'lucide-react'
+import { Camera, Users, FileText, Bell, BellOff, KeyRound, LogOut, Calendar, ChevronRight, Fingerprint, Trash2 } from 'lucide-react'
+import { browserSupportsWebAuthn } from '@simplewebauthn/browser'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
 import { getICalToken, regenerateICalToken, icalUrl } from '../api/training'
 import { listMyChildren } from '../api/members'
 import { subscribePush, unsubscribePush } from '../api/push'
+import { registerPasskey, listPasskeys, deletePasskey } from '../api/passkey'
 import type { ChildUser } from '../api/members'
 import type { ICalToken } from '../types'
 import { PageShell } from '../components/layout/PageShell'
@@ -40,6 +42,11 @@ export function Profil() {
   const [myChildren, setMyChildren] = useState<ChildUser[]>([])
   const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('unsupported')
   const [pushLoading, setPushLoading] = useState(false)
+  const [passkeys, setPasskeys] = useState<{ id: string; device_type: string; backed_up: boolean; created_at: string }[]>([])
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeyError, setPasskeyError] = useState('')
+  const [passkeySuccess, setPasskeySuccess] = useState(false)
+  const [webAuthnSupported] = useState(() => browserSupportsWebAuthn())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -48,7 +55,31 @@ export function Profil() {
       listMyChildren().then(res => { if (res.ok) setMyChildren(res.data) })
     }
     if ('Notification' in window) setPushPermission(Notification.permission)
+    if (browserSupportsWebAuthn()) {
+      listPasskeys().then(res => { if (res.ok) setPasskeys(res.data) })
+    }
   }, [user?.role])
+
+  async function handleAddPasskey() {
+    setPasskeyLoading(true)
+    setPasskeyError('')
+    setPasskeySuccess(false)
+    const res = await registerPasskey()
+    setPasskeyLoading(false)
+    if (res.ok) {
+      setPasskeySuccess(true)
+      const list = await listPasskeys()
+      if (list.ok) setPasskeys(list.data)
+      setTimeout(() => setPasskeySuccess(false), 3000)
+    } else {
+      setPasskeyError(res.error ?? 'Fehler')
+    }
+  }
+
+  async function handleDeletePasskey(id: string) {
+    await deletePasskey(id)
+    setPasskeys(prev => prev.filter(p => p.id !== id))
+  }
 
   async function handleEnablePush() {
     setPushLoading(true)
@@ -309,6 +340,43 @@ export function Profil() {
           </button>
         </div>
       </Card>
+
+      {/* ── Passkeys ──────────────────────────────────── */}
+      {webAuthnSupported && (
+        <Card className="mb-4">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-3">Face ID / Touch ID</p>
+          {passkeys.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {passkeys.map(pk => (
+                <div key={pk.id} className="flex items-center gap-3">
+                  <Fingerprint size={16} className="text-teal-400 shrink-0" />
+                  <span className="text-sm text-white flex-1">
+                    {pk.device_type === 'singleDevice' ? 'Dieses Gerät' : 'Synchronisiert'}
+                    {pk.backed_up && <span className="text-xs text-slate-500 ml-1">(iCloud)</span>}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(pk.created_at).toLocaleDateString('de-AT')}
+                  </span>
+                  <button onClick={() => handleDeletePasskey(pk.id)} className="text-red-400/60 hover:text-red-400 transition-colors p-1">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {passkeyError && <p className="text-xs text-red-400 mb-2">{passkeyError}</p>}
+          {passkeySuccess && <p className="text-xs text-teal-400 mb-2">✓ Passkey hinzugefügt</p>}
+          <button onClick={handleAddPasskey} disabled={passkeyLoading}
+            className="w-full flex items-center gap-3 py-2 text-white active:opacity-70 disabled:opacity-50 transition-opacity">
+            <Fingerprint size={18} className="text-teal-400 shrink-0" />
+            <div className="text-left flex-1">
+              <p className="text-sm font-medium">{passkeyLoading ? 'Warte auf Face ID…' : 'Passkey hinzufügen'}</p>
+              <p className="text-xs text-slate-500">Mit Face ID oder Touch ID schnell anmelden</p>
+            </div>
+            <ChevronRight size={16} className="text-slate-500" />
+          </button>
+        </Card>
+      )}
 
       {/* ── Kalender ──────────────────────────────────── */}
       <Card className="mb-4">

@@ -1,17 +1,23 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { Fingerprint } from 'lucide-react'
+import { browserSupportsWebAuthn } from '@simplewebauthn/browser'
 import { useAuth } from '../hooks/useAuth'
+import { setAccessToken } from '../api/client'
+import { loginWithPasskey } from '../api/passkey'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import mermaidsLogo from '../assets/mermaids-logo.svg'
 
 export function Login() {
-  const { login } = useAuth()
+  const { login, setUser } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const webAuthnSupported = browserSupportsWebAuthn()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,6 +27,20 @@ export function Login() {
     setLoading(false)
     if (result.ok) navigate('/')
     else setError(result.error ?? 'Anmeldung fehlgeschlagen')
+  }
+
+  async function handlePasskeyLogin() {
+    setError('')
+    setPasskeyLoading(true)
+    const result = await loginWithPasskey()
+    setPasskeyLoading(false)
+    if (result.ok && result.user && result.accessToken) {
+      setAccessToken(result.accessToken)
+      setUser(result.user)
+      navigate('/')
+    } else {
+      setError(result.error ?? 'Passkey-Anmeldung fehlgeschlagen')
+    }
   }
 
   return (
@@ -57,6 +77,18 @@ export function Login() {
           <Button type="submit" loading={loading} className="w-full mt-2">
             Anmelden
           </Button>
+
+          {webAuthnSupported && (
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={passkeyLoading}
+              className="w-full flex items-center justify-center gap-2.5 py-3 rounded-2xl border border-white/10 bg-white/5 text-white text-sm font-medium hover:bg-white/10 active:opacity-70 disabled:opacity-50 transition-all"
+            >
+              <Fingerprint size={18} className="text-teal-400" />
+              {passkeyLoading ? 'Warte auf Face ID…' : 'Mit Face ID anmelden'}
+            </button>
+          )}
 
           <div className="text-center pt-2">
             <Link to="/forgot-password" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">

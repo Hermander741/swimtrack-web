@@ -17,6 +17,7 @@ import { trainingRouter } from './routes/training/index'
 import { zeitenRouter } from './routes/zeiten'
 import { membersRouter } from './routes/members'
 import { newsRouter } from './routes/news'
+import { passkeyRouter } from './routes/passkey'
 
 export function createApp() {
   const app = express()
@@ -51,6 +52,7 @@ export function createApp() {
   app.use('/api/zeiten', zeitenRouter)
   app.use('/api/members', membersRouter)
   app.use('/api/news', newsRouter)
+  app.use('/api/passkey', passkeyRouter)
 
   return app
 }
