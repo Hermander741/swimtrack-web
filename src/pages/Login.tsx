@@ -56,6 +56,22 @@ export function Login() {
           position: 'absolute', bottom: 0, left: 0, right: 0, height: '28vh',
           background: 'radial-gradient(ellipse at center bottom, rgba(14,165,233,0.08) 0%, transparent 70%)',
         }} />
+        {/* Wave decoration */}
+        <svg
+          viewBox="0 0 1440 120"
+          preserveAspectRatio="none"
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, width: '100%', height: '80px', opacity: 0.06 }}
+        >
+          <path
+            d="M0,60 C240,100 480,20 720,60 C960,100 1200,20 1440,60 L1440,120 L0,120 Z"
+            fill="#14B8A6"
+          />
+          <path
+            d="M0,80 C360,40 720,100 1080,60 C1260,40 1380,70 1440,80 L1440,120 L0,120 Z"
+            fill="#0EA5E9"
+            style={{ opacity: 0.6 }}
+          />
+        </svg>
       </div>
 
       <div className="w-full max-w-sm relative z-10">

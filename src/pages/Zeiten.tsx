@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2, RefreshCw, Download, Check, User as UserIcon } from 'lucide-react'
+import { Trophy, Timer, Award, Radio, ChevronDown, ChevronUp, TrendingDown, Pencil, Trash2, RefreshCw, Download, Check, User as UserIcon, Plus, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { PageShell } from '../components/layout/PageShell'
 import { Card } from '../components/ui/Card'
@@ -330,7 +330,7 @@ function VergleichView({ allPbs, events }: { allPbs: SwimTimeEntry[]; events: st
                   className="pr-2.5 pl-0.5 py-1.5 opacity-60 hover:opacity-100"
                   aria-label="Entfernen"
                 >
-                  ×
+                  <X size={11} />
                 </button>
               </div>
             ))}
@@ -418,7 +418,7 @@ function VergleichTabelle({
                   {d ? formatTime(d.time_ms) : <span className="text-slate-700">—</span>}
                 </div>
               ))}
-              <div className="w-5 text-slate-600 text-xs">{isOpen ? '▲' : '▼'}</div>
+              <div className="w-5 flex justify-center">{isOpen ? <ChevronUp size={13} className="text-slate-600" /> : <ChevronDown size={13} className="text-slate-600" />}</div>
             </button>
 
             {isOpen && (
@@ -709,7 +709,7 @@ function MeineZeitenTab() {
                     <p className="text-slate-500 text-xs">{t.course} · {t.date}{t.competition ? ` · ${t.competition}` : ''}</p>
                   </div>
                   <p className="font-mono text-white font-bold text-sm shrink-0">{formatTime(t.time_ms)}</p>
-                  <span className="text-slate-600 text-xs shrink-0">{isOpen ? '▲' : '▼'}</span>
+                  <span className="shrink-0">{isOpen ? <ChevronUp size={13} className="text-slate-600" /> : <ChevronDown size={13} className="text-slate-600" />}</span>
                 </button>
 
                 {isOpen && (
@@ -764,9 +764,9 @@ function MeineZeitenTab() {
         <div className="fixed bottom-24 right-4 z-40">
           <button
             onClick={startAdd}
-            className="w-14 h-14 bg-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30 active:scale-95 transition-transform text-white text-2xl font-light"
+            className="w-14 h-14 bg-gradient-to-r from-teal-500 to-sky-500 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30 active:scale-95 transition-transform text-white"
           >
-            +
+            <Plus size={24} />
           </button>
         </div>
       )}

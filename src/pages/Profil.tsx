@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Camera, Users, FileText, Bell, BellOff, KeyRound, LogOut, Calendar, ChevronRight, Fingerprint, Trash2 } from 'lucide-react'
+import { Camera, Users, FileText, Bell, BellOff, KeyRound, LogOut, Calendar, ChevronRight, Fingerprint, Trash2, Check, Globe } from 'lucide-react'
 import { browserSupportsWebAuthn } from '@simplewebauthn/browser'
 import { useAuth } from '../hooks/useAuth'
 import { updateMe, uploadAvatar } from '../api/users'
@@ -273,7 +273,7 @@ export function Profil() {
           {/* myresults */}
           <div className="py-3 space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-[18px] shrink-0 text-center text-slate-400 text-sm font-bold">M</div>
+              <Globe size={18} className="text-slate-400 shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-white">myresults.eu Name</p>
                 <p className="text-xs text-slate-500">Für automatische Ergebnis-Importe</p>
@@ -288,7 +288,7 @@ export function Profil() {
             />
             <button onClick={handleSaveMyresults} disabled={myresultsSaving}
               className="text-xs text-teal-400 hover:text-teal-300 disabled:opacity-50 transition-colors">
-              {myresultsSaved ? '✓ Gespeichert' : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
+              {myresultsSaved ? <span className="flex items-center gap-1"><Check size={12} />Gespeichert</span> : myresultsSaving ? 'Wird gespeichert…' : 'Speichern'}
             </button>
           </div>
 
@@ -365,7 +365,7 @@ export function Profil() {
             </div>
           )}
           {passkeyError && <p className="text-xs text-red-400 mb-2">{passkeyError}</p>}
-          {passkeySuccess && <p className="text-xs text-teal-400 mb-2">✓ Passkey hinzugefügt</p>}
+          {passkeySuccess && <p className="text-xs text-teal-400 mb-2 flex items-center gap-1"><Check size={12} />Passkey hinzugefügt</p>}
           <button onClick={handleAddPasskey} disabled={passkeyLoading}
             className="w-full flex items-center gap-3 py-2 text-white active:opacity-70 disabled:opacity-50 transition-opacity">
             <Fingerprint size={18} className="text-teal-400 shrink-0" />
@@ -390,7 +390,7 @@ export function Profil() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleCopyIcal} className="flex-1 text-xs py-2">
-            {icalCopied ? '✓ Kopiert' : 'Link kopieren'}
+            {icalCopied ? <span className="flex items-center gap-1.5"><Check size={14} />Kopiert</span> : 'Link kopieren'}
           </Button>
           {icalToken && (
             <a href={icalUrl(icalToken.token)} download="mermaids-training.ics"
@@ -414,7 +414,7 @@ export function Profil() {
 
       <Modal open={showPassword} onClose={handleClosePasswordModal} title="Passwort ändern">
         {pwSuccess ? (
-          <p className="text-center text-teal-400 py-4">✓ Passwort geändert!</p>
+          <p className="text-center text-teal-400 py-4 flex items-center justify-center gap-2"><Check size={16} />Passwort geändert!</p>
         ) : (
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <Input label="Neues Passwort" type="password" value={newPassword}
