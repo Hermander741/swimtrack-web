@@ -33,6 +33,10 @@
     -webkit-font-smoothing: antialiased;
     background: #050D1A;
     overscroll-behavior: none;
+    /* Prevent iOS from scrolling the window when the keyboard opens.
+       Individual scroll containers (message list, page main) still scroll. */
+    overflow: hidden;
+    height: 100%;
   }
 
   body {
@@ -40,12 +44,13 @@
     padding: 0;
     background: #050D1A;
     color: #ffffff;
-    min-height: 100dvh;
+    height: 100%;
+    overflow: hidden;
   }
 
   #root {
     width: 100%;
-    min-height: 100dvh;
+    height: 100%;
   }
 
   input, textarea, select {

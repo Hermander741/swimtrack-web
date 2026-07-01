@@ -19,10 +19,6 @@ if ('serviceWorker' in navigator) {
 function syncVV() {
   const h = window.visualViewport?.height ?? window.innerHeight
   document.documentElement.style.setProperty('--vvh', `${h}px`)
-  // iOS scrolls the window when the keyboard opens to reveal the focused input.
-  // We reset that scroll immediately so the fixed-height container stays at
-  // the top of the screen and the content doesn't slide out of view.
-  if (window.scrollY !== 0) window.scrollTo(0, 0)
 }
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncVV)
