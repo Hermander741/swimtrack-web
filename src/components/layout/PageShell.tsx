@@ -12,7 +12,7 @@ interface PageShellProps {
 
 export function PageShell({ title, topBarRight, fab, children, fullHeight }: PageShellProps) {
   return (
-    <div className="h-dvh bg-ocean-950 flex flex-col">
+    <div className="bg-ocean-950 flex flex-col" style={{ height: 'var(--vvh, 100dvh)' }}>
       <TopBar title={title} right={topBarRight} />
       <main className={fullHeight
         ? 'flex-1 flex flex-col overflow-hidden min-h-0'
