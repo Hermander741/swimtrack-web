@@ -18,6 +18,11 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* iOS auto-zoom prevention: inputs must be >= 16px */
+  input, textarea, select {
+    font-size: max(16px, 1em);
+  }
+
   html {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
