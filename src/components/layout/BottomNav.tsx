@@ -13,9 +13,9 @@ export function BottomNav() {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/8"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="flex items-center justify-around px-2 pt-2 pb-2">
+      <div className="flex items-center justify-around px-2 pt-2 pb-0">
         {TABS.map(tab => {
           const active = pathname === tab.path || (tab.path !== '/app' && pathname.startsWith(tab.path))
           return (
