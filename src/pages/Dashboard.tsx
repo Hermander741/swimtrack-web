@@ -58,7 +58,7 @@ export function Dashboard() {
       if (res.ok) setQuote(res.data)
     })
     apiRequest<NewsPost[]>('/api/news/posts').then(res => {
-      if (res.ok) setNewsPosts(res.data.slice(0, 3))
+      if (res.ok) setNewsPosts(res.data.slice(0, 5))
       else setNewsPosts([])
     })
   }, [])
@@ -134,17 +134,17 @@ export function Dashboard() {
             {newsPosts.map(post => (
               <Link to="/news" key={post.id}>
                 <Card className="hover:border-white/20 transition-colors">
-                  <div className="flex items-start gap-2">
-                    {post.pinned && <Pin className="w-3 h-3 text-teal-400 shrink-0 mt-0.5" />}
-                    <div className="min-w-0">
-                      <p className="text-white text-sm font-medium leading-snug">{post.title}</p>
-                      <p className="text-slate-400 text-xs line-clamp-2 mt-0.5">{post.content}</p>
-                      <p className="text-slate-500 text-xs mt-1.5">
-                        {post.author_name && `${post.author_name} · `}
-                        {new Date(post.created_at).toLocaleDateString('de-AT', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </div>
+                  <div className="flex items-start gap-2 mb-2">
+                    {post.pinned && <Pin className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />}
+                    <p className="text-white text-sm font-semibold leading-snug">{post.title}</p>
                   </div>
+                  <p className="text-slate-300 text-sm leading-relaxed line-clamp-4">
+                    {post.content.replace(/\*\*/g, '')}
+                  </p>
+                  <p className="text-slate-500 text-xs mt-2.5">
+                    {post.author_name && `${post.author_name} · `}
+                    {new Date(post.created_at).toLocaleDateString('de-AT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
                 </Card>
               </Link>
             ))}
