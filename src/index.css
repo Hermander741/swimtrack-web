@@ -12,9 +12,6 @@
   --color-slate-600: #475569;
 }
 
-:root {
-  --vvh: 100dvh;
-}
 
 @layer base {
   * {

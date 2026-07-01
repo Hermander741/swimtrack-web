@@ -13,20 +13,6 @@ if ('serviceWorker' in navigator) {
   })
 }
 
-// Track the visual viewport height so the layout shrinks when the iOS keyboard
-// opens. dvh and interactive-widget are ignored by iOS Safari in standalone PWA
-// mode; visualViewport.resize is the only reliable signal available.
-function syncVV() {
-  const h = window.visualViewport?.height ?? window.innerHeight
-  document.documentElement.style.setProperty('--vvh', `${h}px`)
-}
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', syncVV)
-  window.visualViewport.addEventListener('scroll', syncVV)
-} else {
-  window.addEventListener('resize', syncVV)
-}
-syncVV()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
