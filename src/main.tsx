@@ -17,11 +17,12 @@ if ('serviceWorker' in navigator) {
 // opens. dvh and interactive-widget are ignored by iOS Safari in standalone PWA
 // mode; visualViewport.resize is the only reliable signal available.
 function syncVV() {
-  const vv = window.visualViewport
-  const h = vv?.height ?? window.innerHeight
-  const t = vv?.offsetTop ?? 0
+  const h = window.visualViewport?.height ?? window.innerHeight
   document.documentElement.style.setProperty('--vvh', `${h}px`)
-  document.documentElement.style.setProperty('--vvt', `${t}px`)
+  // iOS scrolls the window when the keyboard opens to reveal the focused input.
+  // We reset that scroll immediately so the fixed-height container stays at
+  // the top of the screen and the content doesn't slide out of view.
+  if (window.scrollY !== 0) window.scrollTo(0, 0)
 }
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncVV)
