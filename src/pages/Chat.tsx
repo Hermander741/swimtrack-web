@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { PageShell } from '../components/layout/PageShell'
 import { ChannelList } from '../components/chat/ChannelList'
 import { MessageList } from '../components/chat/MessageList'
@@ -100,7 +101,7 @@ export function Chat() {
           {activeChannelId && activeChannel ? (
             <>
               <div className="px-4 py-3 border-b border-white/10 flex items-center gap-3 shrink-0">
-                <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 font-medium px-1">←</button>
+                <button onClick={() => setActiveChannel(null)} className="md:hidden text-teal-400 -ml-1 p-1"><ChevronLeft size={22} /></button>
                 <div className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white overflow-hidden bg-teal-600/60">
                   {activeChannel.avatar_url
                     ? <img src={`${BASE}${activeChannel.avatar_url}`} alt={activeChannel.name} className="w-full h-full object-cover" />

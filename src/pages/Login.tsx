@@ -44,11 +44,31 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-dvh bg-ocean-950 flex flex-col items-center justify-center px-6 py-12 safe-top">
-      <div className="w-full max-w-sm">
+    <div className="min-h-dvh bg-ocean-950 flex flex-col items-center justify-center px-6 py-12 safe-top relative overflow-hidden">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div style={{
+          position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)',
+          width: '120vw', height: '60vh',
+          background: 'radial-gradient(ellipse at center, rgba(20,184,166,0.12) 0%, transparent 70%)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: '28vh',
+          background: 'radial-gradient(ellipse at center bottom, rgba(14,165,233,0.08) 0%, transparent 70%)',
+        }} />
+      </div>
+
+      <div className="w-full max-w-sm relative z-10">
         <div className="flex flex-col items-center mb-10">
-          <img src={mermaidsLogo} alt="Mermaids" className="w-24 h-24 mb-4" />
-          <h1 className="text-2xl font-bold text-white">Mermaids</h1>
+          <div className="relative mb-5">
+            <div style={{
+              position: 'absolute', inset: '-16px',
+              background: 'radial-gradient(circle, rgba(20,184,166,0.2) 0%, transparent 70%)',
+              borderRadius: '50%',
+            }} />
+            <img src={mermaidsLogo} alt="Mermaids" className="w-24 h-24 relative z-10" />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Mermaids</h1>
           <p className="text-slate-400 text-sm mt-1">Schwimmverein Wien</p>
         </div>
 

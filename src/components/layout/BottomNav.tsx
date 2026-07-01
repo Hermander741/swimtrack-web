@@ -1,32 +1,42 @@
 import { Link, useLocation } from 'react-router-dom'
+import { Home, MessageCircle, Calendar, Timer, MoreHorizontal } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const TABS = [
-  { path: '/app', label: 'Home', icon: '🏠' },
-  { path: '/chat', label: 'Chat', icon: '💬' },
-  { path: '/training', label: 'Training', icon: '📅' },
-  { path: '/zeiten', label: 'Zeiten', icon: '⏱' },
-  { path: '/mehr', label: 'Mehr', icon: '···' },
+const TABS: { path: string; label: string; Icon: LucideIcon }[] = [
+  { path: '/app', label: 'Home', Icon: Home },
+  { path: '/chat', label: 'Chat', Icon: MessageCircle },
+  { path: '/training', label: 'Training', Icon: Calendar },
+  { path: '/zeiten', label: 'Zeiten', Icon: Timer },
+  { path: '/mehr', label: 'Mehr', Icon: MoreHorizontal },
 ]
 
 export function BottomNav() {
   const { pathname } = useLocation()
   return (
     <nav
-      className="shrink-0 glass border-t border-white/8"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="shrink-0 border-t border-white/8"
+      style={{ background: 'rgba(5,13,26,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="flex items-center justify-around px-2 pt-2 pb-0">
-        {TABS.map(tab => {
-          const active = pathname === tab.path || (tab.path !== '/app' && pathname.startsWith(tab.path))
+      <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
+        {TABS.map(({ path, label, Icon }) => {
+          const active = pathname === path || (path !== '/app' && pathname.startsWith(path))
           return (
             <Link
-              key={tab.path}
-              to={tab.path}
-              className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 min-w-0
-                ${active ? 'text-teal-400' : 'text-slate-400'}`}
+              key={path}
+              to={path}
+              className="flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all duration-200 min-w-0 relative"
             >
-              <span className="text-xl leading-none">{tab.icon}</span>
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.5 : 1.75}
+                className={`transition-colors duration-200 ${active ? 'text-teal-400' : 'text-slate-500'}`}
+              />
+              <span className={`text-[10px] font-medium transition-colors duration-200 ${active ? 'text-teal-400' : 'text-slate-500'}`}>
+                {label}
+              </span>
+              {active && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-teal-400" />
+              )}
             </Link>
           )
         })}

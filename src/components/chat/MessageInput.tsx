@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Smile, Paperclip, SendHorizonal, X } from 'lucide-react'
 import type { Message } from '../../types'
 import { uploadAttachment } from '../../api/chat'
 
@@ -109,7 +110,7 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
             <p className="text-teal-400 text-xs">{replyTo.sender_name}</p>
             <p className="text-slate-300 text-xs truncate">{replyTo.content ?? '📎 Anhang'}</p>
           </div>
-          <button onClick={onCancelReply} className="text-slate-400 hover:text-white text-sm">✕</button>
+          <button onClick={onCancelReply} className="text-slate-400 hover:text-white"><X size={14} /></button>
         </div>
       )}
 
@@ -121,7 +122,7 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
               {p.uploading && <span className="text-slate-400">…</span>}
               {p.error && <span className="text-red-400 text-xs">{p.error}</span>}
               {p.attachmentId && <span className="text-teal-400">✓</span>}
-              <button onClick={() => removeAttachment(p.file)} className="text-slate-500 hover:text-red-400">✕</button>
+              <button onClick={() => removeAttachment(p.file)} className="text-slate-500 hover:text-red-400"><X size={13} /></button>
             </div>
           ))}
         </div>
@@ -138,15 +139,15 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
         />
         <button
           onClick={() => setShowEmoji(v => !v)}
-          className={`text-xl transition-colors mb-1 ${showEmoji ? 'text-teal-400' : 'text-slate-400 hover:text-teal-400'}`}
+          className={`transition-colors mb-1 ${showEmoji ? 'text-teal-400' : 'text-slate-400 hover:text-teal-400'}`}
         >
-          😊
+          <Smile size={22} />
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="text-slate-400 hover:text-teal-400 text-xl transition-colors mb-1"
+          className="text-slate-400 hover:text-teal-400 transition-colors mb-1"
         >
-          📎
+          <Paperclip size={22} />
         </button>
         <textarea
           ref={textareaRef}
@@ -162,7 +163,7 @@ export function MessageInput({ channelId, replyTo, onCancelReply, onSend, onTypi
           disabled={!content.trim() && pending.filter(p => p.attachmentId).length === 0}
           className="mb-1 w-10 h-10 rounded-full bg-teal-500 hover:bg-teal-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors"
         >
-          ↑
+          <SendHorizonal size={18} />
         </button>
       </div>
     </div>

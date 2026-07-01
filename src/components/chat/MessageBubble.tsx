@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Reply, Pencil, Pin, Trash2, MoreHorizontal } from 'lucide-react'
 import type { Message } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import { BASE } from '../../api/client'
@@ -144,7 +145,7 @@ export function MessageBubble({ message: msg, isGrouped, onReply, onEdit, onDele
             {emoji}
           </button>
         ))}
-        <button onClick={() => setShowActions(true)} className="text-slate-400 hover:text-white text-sm ml-1">···</button>
+        <button onClick={() => setShowActions(true)} className="text-slate-400 hover:text-white ml-1"><MoreHorizontal size={16} /></button>
       </div>
 
       {showActions && (
@@ -166,12 +167,12 @@ export function MessageBubble({ message: msg, isGrouped, onReply, onEdit, onDele
               ))}
             </div>
             {[
-              { label: '↩ Antworten', action: () => { onReply(msg); setShowActions(false) } },
-              ...(isOwn ? [{ label: '✏️ Bearbeiten', action: () => { onEdit(msg); setShowActions(false) } }] : []),
-              ...(isTrainer ? [{ label: '📌 Anpinnen', action: () => { onPin(msg.id); setShowActions(false) } }] : []),
-              { label: '🗑️ Für mich löschen', action: () => { onDelete(msg.id, false); setShowActions(false) } },
+              { Icon: Reply, label: 'Antworten', action: () => { onReply(msg); setShowActions(false) } },
+              ...(isOwn ? [{ Icon: Pencil, label: 'Bearbeiten', action: () => { onEdit(msg); setShowActions(false) } }] : []),
+              ...(isTrainer ? [{ Icon: Pin, label: 'Anpinnen', action: () => { onPin(msg.id); setShowActions(false) } }] : []),
+              { Icon: Trash2, label: 'Für mich löschen', action: () => { onDelete(msg.id, false); setShowActions(false) }, danger: false },
               ...(isOwn || user?.role === 'admin' ? [{
-                label: '🗑️ Für alle löschen',
+                Icon: Trash2, label: 'Für alle löschen', danger: true,
                 action: () => {
                   if (window.confirm('Nachricht für alle löschen?')) { onDelete(msg.id, true); setShowActions(false) }
                 },
@@ -180,8 +181,9 @@ export function MessageBubble({ message: msg, isGrouped, onReply, onEdit, onDele
               <button
                 key={item.label}
                 onClick={item.action}
-                className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 rounded-xl"
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-colors hover:bg-white/5 ${item.danger ? 'text-red-400' : 'text-white'}`}
               >
+                <item.Icon size={16} className="flex-shrink-0 opacity-70" />
                 {item.label}
               </button>
             ))}
