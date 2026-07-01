@@ -12,7 +12,7 @@ git pull
 
 echo "=== Frontend: npm install + build ==="
 npm ci
-VITE_API_URL=http://178.105.92.40 npm run build
+npm run build
 
 echo "=== Backend: npm install + tsc ==="
 cd server
