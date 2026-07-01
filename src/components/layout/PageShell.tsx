@@ -24,7 +24,9 @@ export function PageShell({ title, topBarRight, fab, children, fullHeight, hideN
       {fab && (
         <div className="fixed bottom-6 right-4 z-40" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' }}>{fab}</div>
       )}
-      {!hideNav && <BottomNav />}
+      {hideNav
+        ? <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+        : <BottomNav />}
     </div>
   )
 }
