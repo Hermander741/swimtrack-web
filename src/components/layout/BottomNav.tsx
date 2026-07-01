@@ -12,7 +12,7 @@ export function BottomNav() {
   const { pathname } = useLocation()
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 glass border-t border-white/8"
+      className="shrink-0 glass border-t border-white/8"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="flex items-center justify-around px-2 pt-2 pb-0">
